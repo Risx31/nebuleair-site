@@ -6,198 +6,128 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body {
-      font-family: Arial;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 0;
-    }
-    .section { display: none; padding: 30px; }
+    body { font-family: Arial; margin: 0; background: #f4f4f4; }
+    .section { display: none; padding: 20px; }
     .active-section { display: block; }
-    .home-container {
-      height: 100vh; display: flex; align-items: center; justify-content: center;
-    }
-    .home-box {
-      background: white; padding: 40px; border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15); text-align: center;
-      width: 90%; max-width: 420px;
-    }
-    .btn {
-      width: 100%; margin: 10px 0; padding: 15px; font-size: 18px;
-      border-radius: 8px; border: none; cursor: pointer; transition: 0.2s;
-    }
+    .home-container { height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .home-box { background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn { margin: 10px 0; padding: 15px; width: 100%; border-radius: 8px; border: none; font-size: 18px; cursor: pointer; }
     .btn-blue { background: #007BFF; color: white; }
     .btn-blue:hover { background: #005fcc; }
-    .btn-grey { background: #e3e3e3; }
-    .btn-grey:hover { background: #d0d0d0; }
 
-    .graph-container { width: 95%; margin: 0 auto; max-width: 1200px; }
-    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; }
+    .back { background: #007BFF; padding: 10px 16px; color: white; border-radius: 6px; cursor: pointer; display: inline-block; margin-bottom: 20px; }
 
-    .controls { margin: 20px 0; text-align: center; }
-    .control-btn {
-      padding: 10px 20px; margin: 0 5px; font-size: 16px;
-      background-color: #e3e3e3; border: 1px solid #ccc;
-      border-radius: 4px; cursor: pointer;
-    }
-    .control-btn.active { background-color: #007BFF; color: white; }
+    .graph-box { background: white; padding: 20px; border-radius: 12px; max-width: 1200px; margin: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
-    .chart-container {
-      position: relative; height: 60vh; width: 100%;
-      background: white; padding: 15px; border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    .value-box {
+      display: flex; justify-content: space-around; padding: 15px;
+      margin-bottom: 15px; background: #ffffff; border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
-    .project-box {
-      background: white; max-width: 800px; margin: auto;
-      padding: 30px; border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    p { font-size: 18px; line-height: 1.6; }
-    .back {
-      margin-bottom: 20px; display: inline-block; padding: 12px 20px;
-      background: #007BFF; color: white; border-radius: 8px; cursor: pointer;
-    }
+    .value-item { text-align: center; }
+    .value-label { font-size: 14px; color: #555; }
+    .value-number { font-size: 20px; font-weight: bold; }
+
+    .checkbox-group { text-align: center; margin-bottom: 20px; }
+    .checkbox-group label { margin-right: 12px; font-size: 16px; }
   </style>
 </head>
 
 <body>
 
-<!-- =============================== -->
 <!-- PAGE ACCUEIL -->
-<!-- =============================== -->
 <div id="home" class="section active-section home-container">
   <div class="home-box">
     <h1>Nebule Air</h1>
     <button class="btn btn-blue" onclick="showSection('dashboard')">Accéder au Dashboard</button>
-    <button class="btn btn-grey" onclick="showSection('project')">À propos du projet</button>
   </div>
 </div>
 
-<!-- =============================== -->
-<!-- PAGE DASHBOARD -->
-<!-- =============================== -->
+<!-- DASHBOARD -->
 <div id="dashboard" class="section">
-  <button class="back" onclick="showSection('home')">← Retour</button>
-  <h1>Nebule Air – Analyse temps réel</h1>
+  <span class="back" onclick="showSection('home')">← Retour</span>
+  <h2 style="text-align:center;">Nebule Air – Analyse temps réel</h2>
 
-  <div class="graph-container">
-
-    <div class="controls">
-      <button id="btnPM1"  class="control-btn active" onclick="switchChannel('pm1','PM1')">PM1</button>
-      <button id="btnPM25" class="control-btn" onclick="switchChannel('pm25','PM2.5')">PM2.5</button>
-      <button id="btnPM10" class="control-btn" onclick="switchChannel('pm10','PM10')">PM10</button>
-      <button id="btnTemp" class="control-btn" onclick="switchChannel('temperature','Température')">Temp</button>
-      <button id="btnHum"  class="control-btn" onclick="switchChannel('humidite','Humidité')">Humidité</button>
+  <!-- VALEURS LIVE -->
+  <div class="value-box">
+    <div class="value-item">
+      <div class="value-label">PM1</div><div id="valPM1" class="value-number">--</div>
     </div>
-
-    <div class="controls">
-      <button id="perMin"  class="control-btn active" onclick="switchPeriod('-60s')">60 sec</button>
-      <button id="perHour" class="control-btn" onclick="switchPeriod('-60m')">60 min</button>
-      <button id="perDay"  class="control-btn" onclick="switchPeriod('-60h')">60 h</button>
-      <button id="perYear" class="control-btn" onclick="switchPeriod('-365d')">365 jours</button>
+    <div class="value-item">
+      <div class="value-label">PM2.5</div><div id="valPM25" class="value-number">--</div>
     </div>
-
-    <div class="chart-container">
-      <canvas id="chart"></canvas>
+    <div class="value-item">
+      <div class="value-label">PM10</div><div id="valPM10" class="value-number">--</div>
     </div>
+    <div class="value-item">
+      <div class="value-label">Température</div><div id="valTemp" class="value-number">--</div>
+    </div>
+    <div class="value-item">
+      <div class="value-label">Humidité</div><div id="valHum" class="value-number">--</div>
+    </div>
+  </div>
 
+  <!-- CHECKBOX MULTI-CURVES -->
+  <div class="checkbox-group">
+    <label><input type="checkbox" class="curve" value="pm1" checked> PM1</label>
+    <label><input type="checkbox" class="curve" value="pm25" checked> PM2.5</label>
+    <label><input type="checkbox" class="curve" value="pm10" checked> PM10</label>
+    <label><input type="checkbox" class="curve" value="temperature" checked> Temp</label>
+    <label><input type="checkbox" class="curve" value="humidite" checked> Humidité</label>
+  </div>
+
+  <div class="graph-box">
+    <canvas id="chart" height="140"></canvas>
   </div>
 </div>
 
-<!-- =============================== -->
-<!-- PAGE PROJET -->
-<!-- =============================== -->
-<div id="project" class="section">
-  <button class="back" onclick="showSection('home')">← Retour</button>
-  <div class="project-box">
-    <h1>À propos du projet Nebule Air</h1>
-    <p>Nebule Air mesure PM1, PM2.5, PM10, Température et Humidité en temps réel.</p>
-    <p>Les données sont stockées dans InfluxDB et affichées via ce dashboard.</p>
-  </div>
-</div>
 
-<!-- =============================== -->
-<!-- SCRIPT -->
-<!-- =============================== -->
 <script>
+/* ----------------------- CONFIG ------------------------- */
 
-// Section switching
+const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
+const BUCKET = "Nodule Air";
+let currentPeriod = "-6h"; // affiche l'historique au démarrage
+
+// couleurs des courbes
+const COLORS = {
+  pm1: "rgb(0, 102, 255)",
+  pm25: "rgb(255, 134, 0)",
+  pm10: "rgb(255, 0, 0)",
+  temperature: "rgb(0, 150, 150)",
+  humidite: "rgb(0, 200, 120)"
+};
+
+/* ----------------------- AFFICHAGE PAGE ------------------------- */
 function showSection(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
   document.getElementById(id).classList.add('active-section');
 }
 
-// Proxy Render
-const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
-const BUCKET = "Nodule Air";
+/* ----------------------- CREATION DU GRAPHE ------------------------- */
+let ctx = document.getElementById("chart").getContext("2d");
 
-// UI state
-let currentField = "pm1";
-let currentLabel = "PM1";
-let currentPeriod = "-60s";
-
-// Chart.js
-let ctx = document.getElementById('chart').getContext('2d');
 let chart = new Chart(ctx, {
   type: "line",
-  data: {
-    labels: [],
-    datasets: [{
-      label: currentLabel,
-      data: [],
-      borderColor: "blue",
-      borderWidth: 2,
-      tension: 0.2,
-      fill: false
-    }]
-  },
-options: {
-  responsive: true,
-  maintainAspectRatio: false,
-  scales: {
-    y: {
-      suggestedMin: 0,
-      suggestedMax: 0.1   // <-- Zoom parfait pour tes valeurs actuelles
+  data: { labels: [], datasets: [] },
+  options: {
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true }
     }
   }
-}
 });
 
-// Switch channel
-function switchChannel(field, label) {
-  currentField = field;
-  currentLabel = label;
-  document.querySelectorAll(".control-btn").forEach(btn => btn.classList.remove("active"));
-  document.getElementById("btn" + label.replace(".", "")).classList.add("active");
-  chart.data.datasets[0].label = label;
-  fetchData();
-}
+/* ----------------------- FONCTION FETCH ------------------------- */
 
-// Switch period
-function switchPeriod(period) {
-  currentPeriod = period;
-  document.getElementById("perMin").classList.remove("active");
-  document.getElementById("perHour").classList.remove("active");
-  document.getElementById("perDay").classList.remove("active");
-  document.getElementById("perYear").classList.remove("active");
-  
-if (period === "-60s")  document.getElementById("perMin").classList.add("active");
-if (period === "-60m")  document.getElementById("perHour").classList.add("active");
-if (period === "-60h")  document.getElementById("perDay").classList.add("active");
-if (period === "-365d") document.getElementById("perYear").classList.add("active");
-
-  fetchData();
-}
-
-// Fetch InfluxDB data through Render proxy
-async function fetchData() {
+async function fetchField(field) {
 
   const fluxQuery = `
   from(bucket: "${BUCKET}")
     |> range(start: ${currentPeriod})
     |> filter(fn: (r) => r._measurement == "nebuleair")
-    |> filter(fn: (r) => r._field == "${currentField}")
+    |> filter(fn: (r) => r._field == "${field}")
     |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
     |> yield()`;
 
@@ -207,32 +137,65 @@ async function fetchData() {
   });
 
   const raw = await response.text();
-  console.log("RAW CSV:", raw);
 
-  const rows = raw.split("\n").filter(r => r.includes(",_field"));
-  let labels = [];
+  const rows = raw.split("\n").filter(l => l.includes(",_field"));
+  let times = [];
   let values = [];
 
-rows.forEach(r => {
-  const cols = r.split(",");
+  rows.forEach(line => {
+    const cols = line.split(",");
+    times.push(cols[5]);
+    values.push(parseFloat(cols[6]));
+  });
 
-  const time = cols[5];
-  const value = parseFloat(cols[6]); // <-- valeur correcte
+  return { times, values };
+}
 
-  labels.push(time);
-  values.push(value);
-});
+/* ----------------------- MISE À JOUR DES DONNÉES ------------------------- */
 
+async function updateChart() {
+  const checked = [...document.querySelectorAll(".curve:checked")].map(c => c.value);
 
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = values;
+  chart.data.labels = [];  
+  chart.data.datasets = [];
+
+  for (let f of checked) {
+    const { times, values } = await fetchField(f);
+
+    if (chart.data.labels.length === 0)
+      chart.data.labels = times;
+
+    chart.data.datasets.push({
+      label: f,
+      data: values,
+      borderColor: COLORS[f],
+      borderWidth: 2,
+      tension: 0.25,
+      fill: false
+    });
+
+    // valeurs live
+    if (values.length > 0) {
+      if (f === "pm1") document.getElementById("valPM1").innerText = values.at(-1).toFixed(2);
+      if (f === "pm25") document.getElementById("valPM25").innerText = values.at(-1).toFixed(2);
+      if (f === "pm10") document.getElementById("valPM10").innerText = values.at(-1).toFixed(2);
+      if (f === "temperature") document.getElementById("valTemp").innerText = values.at(-1).toFixed(2)+" °C";
+      if (f === "humidite") document.getElementById("valHum").innerText = values.at(-1).toFixed(2)+" %";
+    }
+  }
+
   chart.update();
 }
 
-setInterval(fetchData, 10000);
-fetchData();
+/* ----------------------- EVENTS ------------------------- */
+document.querySelectorAll(".curve").forEach(cb => {
+  cb.addEventListener("change", updateChart);
+});
+
+/* ----------------------- AUTO REFRESH ------------------------- */
+setInterval(updateChart, 10000);
+updateChart();
 
 </script>
-
 </body>
 </html>
