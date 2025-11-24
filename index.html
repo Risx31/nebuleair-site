@@ -1,201 +1,29 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Nebule Air</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    body { font-family: Arial; margin: 0; background: #f4f4f4; }
-    .section { display: none; padding: 20px; }
-    .active-section { display: block; }
-    .home-container { height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .home-box { background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .btn { margin: 10px 0; padding: 15px; width: 100%; border-radius: 8px; border: none; font-size: 18px; cursor: pointer; }
-    .btn-blue { background: #007BFF; color: white; }
-    .btn-blue:hover { background: #005fcc; }
-
-    .back { background: #007BFF; padding: 10px 16px; color: white; border-radius: 6px; cursor: pointer; display: inline-block; margin-bottom: 20px; }
-
-    .graph-box { background: white; padding: 20px; border-radius: 12px; max-width: 1200px; margin: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-
-    .value-box {
-      display: flex; justify-content: space-around; padding: 15px;
-      margin-bottom: 15px; background: #ffffff; border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    .value-item { text-align: center; }
-    .value-label { font-size: 14px; color: #555; }
-    .value-number { font-size: 20px; font-weight: bold; }
-
-    .checkbox-group { text-align: center; margin-bottom: 20px; }
-    .checkbox-group label { margin-right: 12px; font-size: 16px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>NebuleAir – Accueil</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <script src="assets/js/common.js" defer></script>
 </head>
 
-<body>
+<body class="light">
 
-<!-- PAGE ACCUEIL -->
-<div id="home" class="section active-section home-container">
-  <div class="home-box">
-    <h1>Nebule Air</h1>
-    <button class="btn btn-blue" onclick="showSection('dashboard')">Accéder au Dashboard</button>
-  </div>
-</div>
+    <header class="topbar">
+        <div class="logo">NebuleAir</div>
+        <button id="themeToggle" class="theme-btn">🌙</button>
+    </header>
 
-<!-- DASHBOARD -->
-<div id="dashboard" class="section">
-  <span class="back" onclick="showSection('home')">← Retour</span>
-  <h2 style="text-align:center;">Nebule Air – Analyse temps réel</h2>
+    <main class="home-container">
+        <div class="home-card">
+            <h1>Bienvenue sur NebuleAir</h1>
+            <p class="subtitle">Surveillance de la qualité de l’air en temps réel</p>
 
-  <!-- VALEURS LIVE -->
-  <div class="value-box">
-    <div class="value-item">
-      <div class="value-label">PM1</div><div id="valPM1" class="value-number">--</div>
-    </div>
-    <div class="value-item">
-      <div class="value-label">PM2.5</div><div id="valPM25" class="value-number">--</div>
-    </div>
-    <div class="value-item">
-      <div class="value-label">PM10</div><div id="valPM10" class="value-number">--</div>
-    </div>
-    <div class="value-item">
-      <div class="value-label">Température</div><div id="valTemp" class="value-number">--</div>
-    </div>
-    <div class="value-item">
-      <div class="value-label">Humidité</div><div id="valHum" class="value-number">--</div>
-    </div>
-  </div>
+            <a href="dashboard.html" class="home-btn">📊 Accéder au Dashboard</a>
+            <a href="status.html" class="home-btn">📡 État du Capteur</a>
+            <a href="settings.html" class="home-btn">⚙️ Paramètres</a>
+        </div>
+    </main>
 
-  <!-- CHECKBOX MULTI-CURVES -->
-  <div class="checkbox-group">
-    <label><input type="checkbox" class="curve" value="pm1" checked> PM1</label>
-    <label><input type="checkbox" class="curve" value="pm25" checked> PM2.5</label>
-    <label><input type="checkbox" class="curve" value="pm10" checked> PM10</label>
-    <label><input type="checkbox" class="curve" value="temperature" checked> Temp</label>
-    <label><input type="checkbox" class="curve" value="humidite" checked> Humidité</label>
-  </div>
-
-  <div class="graph-box">
-    <canvas id="chart" height="140"></canvas>
-  </div>
-</div>
-
-
-<script>
-/* ----------------------- CONFIG ------------------------- */
-
-const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
-const BUCKET = "Nodule Air";
-let currentPeriod = "-6h"; // affiche l'historique au démarrage
-
-// couleurs des courbes
-const COLORS = {
-  pm1: "rgb(0, 102, 255)",
-  pm25: "rgb(255, 134, 0)",
-  pm10: "rgb(255, 0, 0)",
-  temperature: "rgb(0, 150, 150)",
-  humidite: "rgb(0, 200, 120)"
-};
-
-/* ----------------------- AFFICHAGE PAGE ------------------------- */
-function showSection(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
-  document.getElementById(id).classList.add('active-section');
-}
-
-/* ----------------------- CREATION DU GRAPHE ------------------------- */
-let ctx = document.getElementById("chart").getContext("2d");
-
-let chart = new Chart(ctx, {
-  type: "line",
-  data: { labels: [], datasets: [] },
-  options: {
-    responsive: true,
-    scales: {
-      y: { beginAtZero: true }
-    }
-  }
-});
-
-/* ----------------------- FONCTION FETCH ------------------------- */
-
-async function fetchField(field) {
-
-  const fluxQuery = `
-  from(bucket: "${BUCKET}")
-    |> range(start: ${currentPeriod})
-    |> filter(fn: (r) => r._measurement == "nebuleair")
-    |> filter(fn: (r) => r._field == "${field}")
-    |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
-    |> yield()`;
-
-  const response = await fetch(INFLUX_URL, {
-    method: "POST",
-    body: fluxQuery
-  });
-
-  const raw = await response.text();
-
-  const rows = raw.split("\n").filter(l => l.includes(",_field"));
-  let times = [];
-  let values = [];
-
-  rows.forEach(line => {
-    const cols = line.split(",");
-    times.push(cols[5]);
-    values.push(parseFloat(cols[6]));
-  });
-
-  return { times, values };
-}
-
-/* ----------------------- MISE À JOUR DES DONNÉES ------------------------- */
-
-async function updateChart() {
-  const checked = [...document.querySelectorAll(".curve:checked")].map(c => c.value);
-
-  chart.data.labels = [];  
-  chart.data.datasets = [];
-
-  for (let f of checked) {
-    const { times, values } = await fetchField(f);
-
-    if (chart.data.labels.length === 0)
-      chart.data.labels = times;
-
-    chart.data.datasets.push({
-      label: f,
-      data: values,
-      borderColor: COLORS[f],
-      borderWidth: 2,
-      tension: 0.25,
-      fill: false
-    });
-
-    // valeurs live
-    if (values.length > 0) {
-      if (f === "pm1") document.getElementById("valPM1").innerText = values.at(-1).toFixed(2);
-      if (f === "pm25") document.getElementById("valPM25").innerText = values.at(-1).toFixed(2);
-      if (f === "pm10") document.getElementById("valPM10").innerText = values.at(-1).toFixed(2);
-      if (f === "temperature") document.getElementById("valTemp").innerText = values.at(-1).toFixed(2)+" °C";
-      if (f === "humidite") document.getElementById("valHum").innerText = values.at(-1).toFixed(2)+" %";
-    }
-  }
-
-  chart.update();
-}
-
-/* ----------------------- EVENTS ------------------------- */
-document.querySelectorAll(".curve").forEach(cb => {
-  cb.addEventListener("change", updateChart);
-});
-
-/* ----------------------- AUTO REFRESH ------------------------- */
-setInterval(updateChart, 10000);
-updateChart();
-
-</script>
 </body>
 </html>
