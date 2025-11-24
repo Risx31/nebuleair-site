@@ -1,0 +1,277 @@
+/* ==========================================================
+   STYLE.CSS — Base Material Design (clair par défaut)
+   Appliqué à TOUTES les pages
+   ========================================================== */
+
+/* ------------------------------
+   RESET UTILE
+------------------------------ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", Arial, sans-serif;
+}
+
+html, body {
+    height: 100%;
+}
+
+/* ------------------------------
+   THEME MODE (géré par JS)
+------------------------------ */
+body.light {
+    background: #f5f5f5;
+    color: #222;
+}
+
+body.dark {
+    background: #121212;
+    color: #e8e8e8;
+}
+
+/* ------------------------------
+   TOP BAR — Material
+------------------------------ */
+.topbar {
+    width: 100%;
+    padding: 14px 20px;
+    background: #ffffff;
+    color: #222;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+body.dark .topbar {
+    background: #1e1e1e;
+    color: #fff;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.back-btn {
+    text-decoration: none;
+    color: inherit;
+    font-size: 18px;
+    padding-right: 10px;
+}
+
+/* ------------------------------
+   BUTTONS Material
+------------------------------ */
+.theme-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.home-btn {
+    display: block;
+    background: #2962ff;
+    color: white;
+    padding: 14px;
+    margin: 12px 0;
+    border-radius: 10px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 18px;
+    transition: 0.2s;
+}
+
+.home-btn:hover {
+    background: #0039cb;
+}
+
+body.dark .home-btn {
+    background: #4c8dff;
+}
+
+/* ------------------------------
+   HOME PAGE LAYOUT
+------------------------------ */
+.home-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100vh - 64px);
+}
+
+.home-card {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+
+body.dark .home-card {
+    background: #1f1f1f;
+}
+
+.subtitle {
+    margin-bottom: 25px;
+    font-size: 16px;
+    color: #777;
+}
+
+/* ------------------------------
+   STATUS CARDS
+------------------------------ */
+.status-container {
+    padding: 20px;
+}
+
+.section-title {
+    font-size: 22px;
+    margin: 20px 0 10px;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+}
+
+.status-card {
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+}
+
+body.dark .status-card {
+    background: #1d1d1d;
+}
+
+.status-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.status-value {
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.status-subtext {
+    font-size: 14px;
+    opacity: 0.7;
+    margin-top: 4px;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+}
+
+.status-badge.ok {
+    background: #4caf50;
+}
+
+.status-badge.err {
+    background: #e53935;
+}
+
+/* ------------------------------
+   SETTINGS PAGE
+------------------------------ */
+.settings-container {
+    padding: 20px;
+}
+
+.settings-card {
+    background: white;
+    padding: 16px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+}
+
+body.dark .settings-card {
+    background: #1f1f1f;
+}
+
+.settings-label {
+    font-size: 16px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* Switch Material */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+}
+
+.switch input {
+    display: none;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    background: #ccc;
+    top: 0; left: 0; right: 0; bottom: 0;
+    transition: .4s;
+    border-radius: 28px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background: #2962ff;
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+/* Danger zone */
+.danger-zone {
+    border: 1px solid #ff5252;
+}
+
+.danger-btn {
+    background: #ff5252;
+    padding: 12px;
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* RESPONSIVE */
+@media (max-width: 600px) {
+    .home-card {
+        padding: 30px;
+        margin: 20px;
+    }
+}
