@@ -173,6 +173,14 @@ async function fetchData() {
   });
 
   const raw = await response.text();
+  
+  console.log("RAW RESPONSE:");
+console.log(raw);
+
+if (!raw || raw.length < 20) {
+  console.error("⚠️ Aucune donnée reçue depuis InfluxDB !");
+}
+
   const rows = raw.split("\n").filter(r => r.includes(",_field"));
   
   let labels = [];
