@@ -207,11 +207,16 @@ async function fetchData() {
   let labels = [];
   let values = [];
 
-  rows.forEach(r => {
-    const cols = r.split(",");
-    labels.push(cols[5]);
-    values.push(parseFloat(cols[8]));
-  });
+rows.forEach(r => {
+  const cols = r.split(",");
+
+  const time = cols[5];
+  const value = parseFloat(cols[6]); // <-- valeur correcte
+
+  labels.push(time);
+  values.push(value);
+});
+
 
   chart.data.labels = labels;
   chart.data.datasets[0].data = values;
