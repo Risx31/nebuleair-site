@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>NebuleAir – Paramètres</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/dark.css">
+
+    <!-- JS -->
+    <script src="assets/js/common.js" defer></script>
+    <script src="assets/js/settings.js" defer></script>
+</head>
+
+<body class="light">
+
+    <header class="topbar">
+        <a href="index.html" class="back-btn">← Retour</a>
+        <div class="logo">Paramètres</div>
+        <button id="themeToggle" class="theme-btn">🌙</button>
+    </header>
+
+    <main class="settings-container">
+
+        <!-- SECTION : THÈME -->
+        <h2 class="section-title">Thème</h2>
+        <div class="settings-card">
+            <label class="settings-label">Mode sombre</label>
+            <label class="switch">
+                <input type="checkbox" id="darkModeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <!-- SECTION : DASHBOARD -->
+        <h2 class="section-title">Dashboard</h2>
+
+        <div class="settings-card">
+            <label class="settings-label">Période par défaut</label>
+            <select id="defaultPeriod" class="settings-select">
+                <option value="-1h">1 heure</option>
+                <option value="-6h">6 heures</option>
+                <option value="-24h">24 heures</option>
+                <option value="-7d">7 jours</option>
+                <option value="-30d">30 jours</option>
+            </select>
+        </div>
+
+        <div class="settings-card">
+            <label class="settings-label">Fréquence de rafraîchissement</label>
+            <select id="refreshRate" class="settings-select">
+                <option value="10000">10 secondes</option>
+                <option value="30000">30 secondes</option>
+                <option value="60000">1 minute</option>
+                <option value="120000">2 minutes</option>
+            </select>
+        </div>
+
+        <div class="settings-card">
+            <label class="settings-label">Activer le mode LIVE (connexion directe capteur → Web)</label>
+            <label class="switch">
+                <input type="checkbox" id="liveModeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <!-- SECTION : couleurs -->
+        <h2 class="section-title">Couleurs des courbes</h2>
+        <div class="settings-card">
+            <label class="settings-label">PM1</label>
+            <input type="color" id="colorPM1" value="#2962ff">
+
+            <label class="settings-label">PM2.5</label>
+            <input type="color" id="colorPM25" value="#ff9800">
+
+            <label class="settings-label">PM10</label>
+            <input type="color" id="colorPM10" value="#ef5350">
+
+            <label class="settings-label">Température</label>
+            <input type="color" id="colorTemp" value="#26c6da">
+
+            <label class="settings-label">Humidité</label>
+            <input type="color" id="colorHum" value="#26a69a">
+        </div>
+
+        <!-- SECTION : système -->
+        <h2 class="section-title">Système</h2>
+        <div class="settings-card danger-zone">
+            <button id="resetSite" class="danger-btn">Réinitialiser toutes les préférences</button>
+        </div>
+
+    </main>
+
+</body>
+</html>
