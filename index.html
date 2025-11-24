@@ -175,11 +175,11 @@ function switchPeriod(period) {
   document.getElementById("perHour").classList.remove("active");
   document.getElementById("perDay").classList.remove("active");
   document.getElementById("perYear").classList.remove("active");
-
-  if (period === "-60s")  perMin.classList.add("active");
-  if (period === "-60m")  perHour.classList.add("active");
-  if (period === "-60h")  perDay.classList.add("active");
-  if (period === "-365d") perYear.classList.add("active");
+  
+if (period === "-60s")  document.getElementById("perMin").classList.add("active");
+if (period === "-60m")  document.getElementById("perHour").classList.add("active");
+if (period === "-60h")  document.getElementById("perDay").classList.add("active");
+if (period === "-365d") document.getElementById("perYear").classList.add("active");
 
   fetchData();
 }
