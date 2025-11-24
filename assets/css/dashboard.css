@@ -1,0 +1,189 @@
+/* ==========================================================
+   DASHBOARD.CSS — Styles spécifiques à la page dashboard.html
+   Material Design + responsive
+   ========================================================== */
+
+/* ------------------------------
+   Dashboard container
+------------------------------ */
+.dashboard-container {
+    padding: 20px;
+}
+
+/* ------------------------------
+   Live values (PM1, PM2.5...)
+------------------------------ */
+.live-values {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.value-box {
+    background: white;
+    padding: 15px 18px;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    min-width: 120px;
+    text-align: center;
+}
+
+body.dark .value-box {
+    background: #1d1d1d;
+}
+
+.value-box .label {
+    font-size: 14px;
+    color: #777;
+}
+
+.value-box .value {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+/* ------------------------------
+   Curve selectors
+------------------------------ */
+.curve-select {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin: 15px 0 25px;
+    flex-wrap: wrap;
+}
+
+.curve-select label {
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.curve-select input {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+/* ------------------------------
+   Period buttons
+------------------------------ */
+.period-select {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.period-btn {
+    background: #e0e0e0;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.period-btn.active {
+    background: #2962ff;
+    color: white;
+}
+
+body.dark .period-btn {
+    background: #333;
+}
+
+body.dark .period-btn.active {
+    background: #4c8dff;
+}
+
+/* Date Picker */
+.period-select input[type="date"] {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+#applyCustom {
+    background: #2962ff;
+    color: white;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+}
+
+/* ------------------------------
+   Chart card
+------------------------------ */
+.chart-card {
+    background: white;
+    padding: 18px;
+    border-radius: 18px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    height: 420px;
+    margin-bottom: 25px;
+}
+
+body.dark .chart-card {
+    background: #1d1d1d;
+}
+
+/* Chart canvas full width+height */
+.chart-card canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ------------------------------
+   Actions row
+------------------------------ */
+.actions {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.action-btn {
+    padding: 12px 20px;
+    background: #2962ff;
+    color: white;
+    border-radius: 10px;
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.action-btn:hover {
+    background: #0039cb;
+}
+
+body.dark .action-btn {
+    background: #4c8dff;
+}
+
+/* ------------------------------
+   Responsive optimizations
+------------------------------ */
+@media (max-width: 700px) {
+    .live-values {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .curve-select {
+        flex-direction: column;
+    }
+
+    .period-select {
+        flex-direction: column;
+    }
+}
