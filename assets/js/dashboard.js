@@ -1,213 +1,216 @@
-// ============================================================
-// Configuration
-// ============================================================
+//-----------------------------------------------------------
+// Dashboard.js (version stable sans zoom)
+// Compatible avec :
+// - https://nebuleairproxy.onrender.com/
+// - Chart.js 4.x
+// - CSV InfluxDB Cloud
+//-----------------------------------------------------------
 
-const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
-const BUCKET = "Nodule Air";
-let currentPeriod = "-1h";
+// Proxy API
+const API_URL = "https://nebuleairproxy.onrender.com/query";
 
-let chart;
+// Chart instance
+let chart = null;
 
-// ============================================================
-// Fonction : parseur CSV robuste pour InfluxDB Cloud
-// ============================================================
-
-function parseInfluxCSV(text) {
-    const lines = text
-        .split("\n")
-        .map(l => l.trim())
-        .filter(l => l && !l.startsWith(",result,table"));
-
-    const result = [];
-
-    for (let line of lines) {
-        const cols = line.split(",");
-
-        if (cols.length < 7) continue;
-
-        const time = cols[5];      // _time
-        const value = parseFloat(cols[6]);  // _value
-        if (isNaN(value)) continue;
-
-        result.push({
-            t: new Date(time),
-            v: value
-        });
-    }
-
-    return result;
-}
-
-// ============================================================
-// Envoi de requête FLUX au proxy Render
-// ============================================================
-
-async function loadField(field) {
-    const flux = `
-from(bucket: "${BUCKET}")
-  |> range(start: ${currentPeriod})
+// ===========================================================
+// 1) Charger les données depuis Influx via le proxy Render
+// ===========================================================
+async function loadInflux(period = "-1h", start = null, end = null) {
+    let flux = `
+from(bucket: "Nodule Air")
+  |> range(start: ${start ? `"${start}"` : period}, stop: ${end ? `"${end}"` : "now()"})
   |> filter(fn: (r) => r._measurement == "nebuleair")
-  |> filter(fn: (r) => r._field == "${field}")
-  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
-  |> keep(columns: ["_time","_value"])
+  |> filter(fn: (r) => 
+        r._field == "pm1" or 
+        r._field == "pm25" or 
+        r._field == "pm10" or 
+        r._field == "temperature" or 
+        r._field == "humidite")
+  |> keep(columns: ["_time","_value","_field"])
+  |> aggregateWindow(every: 1m, fn: mean)
+  |> yield(name:"mean")
 `;
 
-    const response = await fetch(INFLUX_URL, {
+    const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: flux
     });
 
-    const csv = await response.text();
-    return parseInfluxCSV(csv);
+    const text = await res.text();
+    return parseInfluxCSV(text);
 }
 
-// ============================================================
-// Initialisation du graphique Chart.js
-// ============================================================
+// ===========================================================
+// 2) Parser le CSV Influx → Objet JS exploitable
+// ===========================================================
+function parseInfluxCSV(csv) {
+    const lignes = csv.trim().split("\n");
 
-function initChart() {
+    // Dictionnaire vide
+    const data = {
+        pm1: [],
+        pm25: [],
+        pm10: [],
+        temperature: [],
+        humidite: []
+    };
+
+    // On commence à la ligne 1 pour sauter l'entête
+    for (let i = 1; i < lignes.length; i++) {
+        const line = lignes[i].trim();
+        if (!line) continue;
+
+        const cols = line.split(",");
+
+        if (cols.length < 7) continue;
+
+        const time = new Date(cols[4]);
+        const value = parseFloat(cols[5]);
+        const field = cols[6];
+
+        if (!data[field]) continue;
+
+        data[field].push({
+            time: time,
+            value: value
+        });
+    }
+
+    return data;
+}
+
+// ===========================================================
+// 3) Mettre à jour les encadrés LIVE
+// ===========================================================
+function updateLiveValues(data) {
+    const mapping = {
+        livePM1: "pm1",
+        livePM25: "pm25",
+        livePM10: "pm10",
+        liveTemp: "temperature",
+        liveHum: "humidite"
+    };
+
+    for (const id in mapping) {
+        const field = mapping[id];
+        const el = document.getElementById(id);
+
+        if (!el) continue;
+
+        const arr = data[field];
+        if (arr && arr.length > 0) {
+            let val = arr[arr.length - 1].value;
+
+            if (field === "temperature") val = val.toFixed(1) + "°C";
+            else if (field === "humidite") val = val.toFixed(1) + "%";
+            else val = val.toFixed(1);
+
+            el.textContent = val;
+        } else {
+            el.textContent = "--";
+        }
+    }
+}
+
+// ===========================================================
+// 4) Graphique Chart.js (sans zoom)
+// ===========================================================
+function updateChart(data) {
     const ctx = document.getElementById("chart").getContext("2d");
+
+    const colors = {
+        pm1: "#2962ff",
+        pm25: "#ff9800",
+        pm10: "#e53935",
+        temperature: "#00acc1",
+        humidite: "#26a69a"
+    };
+
+    const datasets = [];
+
+    document.querySelectorAll(".curve").forEach(chk => {
+        if (chk.checked) {
+            const f = chk.value;
+
+            datasets.push({
+                label: f.toUpperCase(),
+                data: data[f].map(pt => ({ x: pt.time, y: pt.value })),
+                borderColor: colors[f],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.25
+            });
+        }
+    });
+
+    if (chart) chart.destroy();
 
     chart = new Chart(ctx, {
         type: "line",
-        data: { labels: [], datasets: [] },
+        data: { datasets },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
             scales: {
-                x: {
-                    type: "time",
-                    time: { unit: "minute" }
-                }
-            },
-plugins: {}
+                x: { type: "time", time: { tooltipFormat: "HH:mm" } },
+                y: { beginAtZero: false }
             }
         }
     });
 }
 
-// ============================================================
-// Met à jour les valeurs LIVE au-dessus du graphique
-// ============================================================
-
-function updateLiveValues(series) {
-    if (series.pm1.length)
-        livePM1.textContent = series.pm1.at(-1).v.toFixed(2);
-
-    if (series.pm25.length)
-        livePM25.textContent = series.pm25.at(-1).v.toFixed(2);
-
-    if (series.pm10.length)
-        livePM10.textContent = series.pm10.at(-1).v.toFixed(2);
-
-    if (series.temperature.length)
-        liveTemp.textContent = series.temperature.at(-1).v.toFixed(1) + "°C";
-
-    if (series.humidite.length)
-        liveHum.textContent = series.humidite.at(-1).v.toFixed(1) + "%";
-}
-
-// ============================================================
-// Met à jour le graphique Chart.js
-// ============================================================
-
-function updateChart(series) {
-    chart.data.labels = series.pm25.map(p => p.t); // timeline commune
-
-    chart.data.datasets = [];
-
-    const colors = {
-        pm1: "#2962ff",
-        pm25: "#ff9800",
-        pm10: "#ef5350",
-        temperature: "#26c6da",
-        humidite: "#26a69a"
-    };
-
-    for (let field of Object.keys(series)) {
-        const checkbox = document.querySelector(`input[value="${field}"]`);
-        if (!checkbox.checked) continue;
-
-        chart.data.datasets.push({
-            label: field.toUpperCase(),
-            data: series[field].map(p => p.v),
-            borderColor: colors[field],
-            tension: 0.25,
-            borderWidth: 2,
-            pointRadius: 0
-        });
-    }
-
-    chart.update();
-}
-
-// ============================================================
-// Fonction principale : recharge tout
-// ============================================================
-
-async function refreshDashboard() {
-    const fields = ["pm1", "pm25", "pm10", "temperature", "humidite"];
-
-    const series = {};
-
-    for (let f of fields)
-        series[f] = await loadField(f);
-
-    updateLiveValues(series);
-    updateChart(series);
-}
-
-// ============================================================
-// Listeners : périodes
-// ============================================================
-
+// ===========================================================
+// 5) Sélection période (boutons)
+// ===========================================================
 document.querySelectorAll(".period-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-        document.querySelectorAll(".period-btn")
-            .forEach(b => b.classList.remove("active"));
-
+        document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        currentPeriod = btn.dataset.period;
-        refreshDashboard();
+
+        loadAndRender(btn.dataset.period);
     });
 });
 
-// ============================================================
-// Listeners : checkbox des courbes
-// ============================================================
+// ===========================================================
+// 6) Période personnalisée
+// ===========================================================
+document.getElementById("applyCustom").addEventListener("click", () => {
+    const s = document.getElementById("customStart").value;
+    const e = document.getElementById("customEnd").value;
+    if (!s || !e) return;
 
-document.querySelectorAll(".curve").forEach(cb => {
-    cb.addEventListener("change", refreshDashboard);
+    loadAndRender(null, s, e);
 });
 
-// ============================================================
-// Zoom reset
-// ============================================================
+// ===========================================================
+// 7) Fonction centrale
+// ===========================================================
+async function loadAndRender(period = "-1h", start = null, end = null) {
+    const data = await loadInflux(period, start, end);
+    if (!data) return;
 
-document.getElementById("resetZoom").addEventListener("click", () => {
-    chart.resetZoom();
-});
+    updateLiveValues(data);
+    updateChart(data);
+}
 
-// ============================================================
-// Export CSV
-// ============================================================
+// ===========================================================
+// 8) Initialisation (1h par défaut)
+// ===========================================================
+loadAndRender("-1h");
 
+// ===========================================================
+// 9) Export CSV
+// ===========================================================
 document.getElementById("exportCSV").addEventListener("click", () => {
-    let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
+    if (!chart) return;
 
-    const labels = chart.data.labels;
+    let csv = "time,field,value\n";
 
-    labels.forEach((t, i) => {
-        const row = [
-            new Date(t).toISOString(),
-            chart.data.datasets[0]?.data[i] ?? "",
-            chart.data.datasets[1]?.data[i] ?? "",
-            chart.data.datasets[2]?.data[i] ?? "",
-            chart.data.datasets[3]?.data[i] ?? "",
-            chart.data.datasets[4]?.data[i] ?? ""
-        ];
-        csv += row.join(",") + "\n";
+    chart.data.datasets.forEach(ds => {
+        ds.data.forEach(p => {
+            csv += `${p.x.toISOString()},${ds.label},${p.y}\n`;
+        });
     });
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -220,11 +223,3 @@ document.getElementById("exportCSV").addEventListener("click", () => {
 
     URL.revokeObjectURL(url);
 });
-
-// ============================================================
-// INITIALISATION
-// ============================================================
-
-initChart();
-refreshDashboard();
-setInterval(refreshDashboard, 15000);
