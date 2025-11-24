@@ -1,95 +1,383 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>NebuleAir – Dashboard</title>
+  <meta charset="UTF-8" />
+  <title>Dashboard NebuleAir</title>
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+  <!-- Pas de favicon, comme demandé -->
 
-    <!-- Chart.js (version stable) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Chart.js (sans plugin de zoom) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Adapter dates -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0"></script>
+  <style>
+    :root {
+      --bg: #f5f6fa;
+      --card-bg: #ffffff;
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.08);
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow-soft: 0 10px 25px rgba(15, 23, 42, 0.06);
+      --radius-lg: 18px;
+    }
 
-    <!-- Aucun plugin zoom pour éviter les erreurs MIME -->
-    
-    <!-- Scripts internes -->
-    <script src="assets/js/common.js" defer></script>
-    <script src="assets/js/api.js" defer></script>
-    <script src="assets/js/dashboard.js" defer></script>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #eef2ff 0, #f5f6fa 40%, #f9fafb 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px 24px 32px;
+    }
+
+    /* Header ---------------------------------------------------------- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      transition: background 0.15s;
+    }
+
+    .back-link:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    .back-arrow {
+      font-size: 18px;
+    }
+
+    .title {
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      font-size: 22px;
+    }
+
+    .header-right {
+      font-size: 20px;
+    }
+
+    /* Top cards ------------------------------------------------------- */
+    .top-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .card-value {
+      font-size: 24px;
+      font-weight: 650;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .card-unit {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Filters --------------------------------------------------------- */
+    .filters {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      font-size: 14px;
+    }
+
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .checkbox-group input {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+    }
+
+    .range-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .range-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #f9fafb;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .range-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    }
+
+    .range-btn:hover {
+      background: #e5edff;
+    }
+
+    .date-input {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      background: #f9fafb;
+    }
+
+    .btn-primary {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 13px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    /* Chart card ------------------------------------------------------ */
+    .chart-card {
+      background: var(--card-bg);
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+      padding: 20px 20px 14px;
+      height: 430px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-container {
+      position: relative;
+      flex: 1;
+    }
+
+    /* Bottom buttons -------------------------------------------------- */
+    .bottom-actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .btn-outline {
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 7px 14px;
+      font-size: 13px;
+      background: #f9fafb;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-outline:hover {
+      background: var(--accent-soft);
+    }
+
+    @media (max-width: 1024px) {
+      .top-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .filters {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 12px 12px 24px;
+      }
+      .top-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <div class="header">
+      <a href="index.html" class="back-link">
+        <span class="back-arrow">←</span>
+        <span>Retour</span>
+      </a>
+      <div class="title">Dashboard</div>
+      <div class="header-right">🍌</div>
+    </div>
 
-<body class="light">
+    <!-- Cartes valeurs instantanées -->
+    <div class="top-cards">
+      <div class="card">
+        <div class="card-label">PM1</div>
+        <div class="card-value">
+          <span id="pm1-value">--</span>
+          <span class="card-unit">µg/m³</span>
+        </div>
+      </div>
 
-    <header class="topbar">
-        <a href="index.html" class="back-btn">← Retour</a>
-        <div class="logo">Dashboard</div>
-        <button id="themeToggle" class="theme-btn">🌙</button>
-    </header>
+      <div class="card">
+        <div class="card-label">PM2.5</div>
+        <div class="card-value">
+          <span id="pm25-value">--</span>
+          <span class="card-unit">µg/m³</span>
+        </div>
+      </div>
 
-    <main class="dashboard-container">
+      <div class="card">
+        <div class="card-label">PM10</div>
+        <div class="card-value">
+          <span id="pm10-value">--</span>
+          <span class="card-unit">µg/m³</span>
+        </div>
+      </div>
 
-        <!-- Valeurs LIVE -->
-        <section class="live-values">
-            <div class="value-box">
-                <span class="label">PM1</span>
-                <span id="livePM1" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">PM2.5</span>
-                <span id="livePM25" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">PM10</span>
-                <span id="livePM10" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">Température</span>
-                <span id="liveTemp" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">Humidité</span>
-                <span id="liveHum" class="value">--</span>
-            </div>
-        </section>
+      <div class="card">
+        <div class="card-label">Température / Humidité</div>
+        <div class="card-value">
+          <span id="temp-value">--</span>
+          <span class="card-unit">°C</span>
+        </div>
+        <div class="card-value" style="font-size:18px;margin-top:2px;">
+          <span id="hum-value">--</span>
+          <span class="card-unit">%</span>
+        </div>
+      </div>
+    </div>
 
-        <!-- Sélection des courbes -->
-        <section class="curve-select">
-            <label><input type="checkbox" class="curve" value="pm1" checked> PM1</label>
-            <label><input type="checkbox" class="curve" value="pm25" checked> PM2.5</label>
-            <label><input type="checkbox" class="curve" value="pm10" checked> PM10</label>
-            <label><input type="checkbox" class="curve" value="temperature" checked> Température</label>
-            <label><input type="checkbox" class="curve" value="humidite" checked> Humidité</label>
-        </section>
+    <!-- Filtres -->
+    <div class="filters">
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="pm1-toggle" checked />
+          <span>PM1</span>
+        </label>
+        <label>
+          <input type="checkbox" id="pm25-toggle" checked />
+          <span>PM2.5</span>
+        </label>
+        <label>
+          <input type="checkbox" id="pm10-toggle" checked />
+          <span>PM10</span>
+        </label>
+        <label>
+          <input type="checkbox" id="temp-toggle" checked />
+          <span>Température</span>
+        </label>
+        <label>
+          <input type="checkbox" id="hum-toggle" checked />
+          <span>Humidité</span>
+        </label>
+      </div>
 
-        <!-- Sélecteur période -->
-        <section class="period-select">
-            <button class="period-btn active" data-period="-1h">1h</button>
-            <button class="period-btn" data-period="-6h">6h</button>
-            <button class="period-btn" data-period="-24h">24h</button>
-            <button class="period-btn" data-period="-7d">7j</button>
-            <button class="period-btn" data-period="-30d">30j</button>
+      <div class="range-group">
+        <button class="range-btn active" data-range="1h">1h</button>
+        <button class="range-btn" data-range="6h">6h</button>
+        <button class="range-btn" data-range="24h">24h</button>
+        <button class="range-btn" data-range="7j">7j</button>
+        <button class="range-btn" data-range="30j">30j</button>
 
-            <input type="date" id="customStart">
-            <input type="date" id="customEnd">
-            <button id="applyCustom">Appliquer</button>
-        </section>
+        <input type="date" id="start-date" class="date-input" placeholder="jj/mm/aaaa" />
+        <input type="date" id="end-date" class="date-input" placeholder="jj/mm/aaaa" />
 
-        <!-- Graphique -->
-        <section class="chart-card">
-            <canvas id="chart"></canvas>
-        </section>
+        <button id="apply-range" class="btn-primary">Appliquer</button>
+      </div>
+    </div>
 
-        <!-- Actions -->
-        <section class="actions">
-            <button id="resetZoom" class="action-btn">🔍 Réinitialiser Zoom</button>
-            <button id="exportCSV" class="action-btn">📄 Exporter CSV</button>
-        </section>
+    <!-- Graphique -->
+    <div class="chart-card">
+      <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
 
-    </main>
+    <!-- Actions bas -->
+    <div class="bottom-actions">
+      <button id="reset-zoom" class="btn-outline">
+        🔍 Réinitialiser Zoom
+      </button>
+      <button id="export-csv" class="btn-outline">
+        📤 Exporter CSV
+      </button>
+    </div>
+  </div>
 
+  <!-- Ton JS (version sans proxy) -->
+  <script src="dashboard.js"></script>
 </body>
 </html>
