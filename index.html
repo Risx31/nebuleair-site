@@ -553,40 +553,11 @@ function switchPeriod(period) {
 
 
 // Fetch InfluxDB Data
+const response = await fetch(INFLUX_URL, {
+  method: "POST",
+  body: fluxQuery   // ATTENTION : plus de JSON ici !
+});
 
-async function fetchData() {
-
-  const fluxQuery = `
-
-  from(bucket: "${BUCKET}")
-
-    |> range(start: ${currentPeriod})
-
-    |> filter(fn: (r) => r._measurement == "nebuleair")
-
-    |> filter(fn: (r) => r._field == "${currentField}")
-
-    |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
-
-    |> yield()`;
-
-
-
-  const response = await fetch(INFLUX_URL, {
-
-    method: "POST",
-
-    headers: {
-
-      "Authorization": "Token " + INFLUX_TOKEN,
-
-      "Content-Type": "application/vnd.flux"
-
-    },
-
-    body: JSON.stringify({ query: fluxQuery, type: "flux" })
-
-  });
 
 
 
