@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NebuleAir — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Mesures NebuleAir</h1>
+
+  <canvas id="pmChart" width="400" height="200"></canvas>
+
+<script>
+const INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com/api/v2/query";
+const INFLUX_TOKEN = "VOTRE_TOKEN";
+
+// Requête Flux pour récupérer les données
+const query = `
+from(bucket: "VOTRE_BUCKET")
+  |> range(start: -1h)
+  |> filter(fn: (r) => r._measurement == "mesures")
+  |> filter(fn: (r) => r._field == "pm25")
+`;
+
+async function fetchData() {
+  const res = await fetch(INFLUX_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": "Token " + INFLUX_TOKEN,
+      "Content-Type": "application/vnd.flux"
+    },
+    body: query
+  });
+
+  const json = await res.json();
+  let times = [];
+  let values = [];
+
+  json.tables.forEach(t => {
+    t.records.forEach(r => {
+      times.push(r._time);
+      values.push(r._value);
+    })
+  });
+
+  const ctx = document.getElementById('pmChart');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: times,
+      datasets: [{ 
+        label: 'PM2.5',
+        data: values,
+      }]
+    }
+  });
+}
+
+fetchData();
+</script>
+
+</body>
+</html>
