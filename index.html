@@ -1,559 +1,192 @@
 <!DOCTYPE html>
-
 <html lang="fr">
-
 <head>
-
   <meta charset="UTF-8">
-
   <title>Nebule Air</title>
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-
-
   <style>
-
     body {
-
       font-family: Arial;
-
       background: #f4f4f4;
-
       margin: 0;
-
       padding: 0;
-
     }
-
-
-
-    /* Sections structure */
-
-    .section {
-
-      display: none;
-
-      padding: 30px;
-
-    }
-
-    .active-section {
-
-      display: block;
-
-    }
-
-
-
-    /* Home Page */
-
+    .section { display: none; padding: 30px; }
+    .active-section { display: block; }
     .home-container {
-
-      height: 100vh;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-
+      height: 100vh; display: flex; align-items: center; justify-content: center;
     }
-
     .home-box {
-
-      background: white;
-
-      padding: 40px;
-
-      border-radius: 16px;
-
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-
-      text-align: center;
-
-      width: 90%;
-
-      max-width: 420px;
-
+      background: white; padding: 40px; border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15); text-align: center;
+      width: 90%; max-width: 420px;
     }
-
     .btn {
-
-      display: block;
-
-      width: 100%;
-
-      margin: 10px 0;
-
-      padding: 15px;
-
-      font-size: 18px;
-
-      border-radius: 8px;
-
-      border: none;
-
-      cursor: pointer;
-
-      transition: 0.2s;
-
+      width: 100%; margin: 10px 0; padding: 15px; font-size: 18px;
+      border-radius: 8px; border: none; cursor: pointer; transition: 0.2s;
     }
-
     .btn-blue { background: #007BFF; color: white; }
-
     .btn-blue:hover { background: #005fcc; }
-
     .btn-grey { background: #e3e3e3; }
-
     .btn-grey:hover { background: #d0d0d0; }
 
+    .graph-container { width: 95%; margin: 0 auto; max-width: 1200px; }
+    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; }
 
-
-    /* Dashboard Styling */
-
-    .graph-container { 
-
-      width: 95%; 
-
-      margin: 0 auto; 
-
-      max-width: 1200px; 
-
+    .controls { margin: 20px 0; text-align: center; }
+    .control-btn {
+      padding: 10px 20px; margin: 0 5px; font-size: 16px;
+      background-color: #e3e3e3; border: 1px solid #ccc;
+      border-radius: 4px; cursor: pointer;
     }
-
-    h1 {
-
-      text-align: center;
-
-      font-size: 24px;
-
-      margin-bottom: 20px;
-
-    }
-
-    .controls { 
-
-      margin: 20px 0; 
-
-      text-align: center; 
-
-    }
-
-    .control-btn { 
-
-      padding: 10px 20px; 
-
-      margin: 0 5px; 
-
-      font-size: 16px;
-
-      background-color: #e3e3e3;
-
-      border: 1px solid #ccc;
-
-      border-radius: 4px;
-
-      cursor: pointer;
-
-    }
-
-    .control-btn.active {
-
-      background-color: #007BFF;
-
-      color: white;
-
-    }
+    .control-btn.active { background-color: #007BFF; color: white; }
 
     .chart-container {
-
-      position: relative;
-
-      height: 60vh;
-
-      width: 100%;
-
-      background: white;
-
-      padding: 15px;
-
-      border-radius: 12px;
-
+      position: relative; height: 60vh; width: 100%;
+      background: white; padding: 15px; border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-
     }
-
-
-
-    /* Project Page */
 
     .project-box {
-
-      background: white;
-
-      max-width: 800px;
-
-      margin: auto;
-
-      padding: 30px;
-
-      border-radius: 12px;
-
+      background: white; max-width: 800px; margin: auto;
+      padding: 30px; border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-
     }
-
     p { font-size: 18px; line-height: 1.6; }
-
     .back {
-
-      margin-top: 30px;
-
-      display: inline-block;
-
-      padding: 12px 20px;
-
-      background: #007BFF;
-
-      color: white;
-
-      border-radius: 8px;
-
-      cursor: pointer;
-
+      margin-bottom: 20px; display: inline-block; padding: 12px 20px;
+      background: #007BFF; color: white; border-radius: 8px; cursor: pointer;
     }
-
   </style>
-
 </head>
-
-
 
 <body>
 
-
-
 <!-- =============================== -->
-
-<!-- PAGE Dâ€™ACCUEIL                  -->
-
+<!-- PAGE ACCUEIL -->
 <!-- =============================== -->
-
 <div id="home" class="section active-section home-container">
-
   <div class="home-box">
-
     <h1>Nebule Air</h1>
-
-
-
-    <button class="btn btn-blue" onclick="showSection('dashboard')">
-
-      AccÃ©der au Dashboard
-
-    </button>
-
-
-
-    <button class="btn btn-grey" onclick="showSection('project')">
-
-      Ã€ propos du projet
-
-    </button>
-
+    <button class="btn btn-blue" onclick="showSection('dashboard')">Accéder au Dashboard</button>
+    <button class="btn btn-grey" onclick="showSection('project')">À propos du projet</button>
   </div>
-
 </div>
 
-
-
-
-
 <!-- =============================== -->
-
-<!-- PAGE DASHBOARD                  -->
-
+<!-- PAGE DASHBOARD -->
 <!-- =============================== -->
-
 <div id="dashboard" class="section">
-
-
-
-  <button class="back" onclick="showSection('home')">â† Retour</button>
-
-
-
-  <h1>Nebule Air â€“ Analyse temps rÃ©el</h1>
-
-
+  <button class="back" onclick="showSection('home')">← Retour</button>
+  <h1>Nebule Air – Analyse temps réel</h1>
 
   <div class="graph-container">
 
-
-
-    <!-- Channels -->
-
     <div class="controls">
-
-      <button id="btnPM1" class="control-btn active" onclick="switchChannel('pm1','PM1')">PM1</button>
-
+      <button id="btnPM1"  class="control-btn active" onclick="switchChannel('pm1','PM1')">PM1</button>
       <button id="btnPM25" class="control-btn" onclick="switchChannel('pm25','PM2.5')">PM2.5</button>
-
       <button id="btnPM10" class="control-btn" onclick="switchChannel('pm10','PM10')">PM10</button>
-
-      <button id="btnTemp" class="control-btn" onclick="switchChannel('temperature','TempÃ©rature')">Temp</button>
-
-      <button id="btnHum" class="control-btn" onclick="switchChannel('humidite','HumiditÃ©')">HumiditÃ©</button>
-
+      <button id="btnTemp" class="control-btn" onclick="switchChannel('temperature','Température')">Temp</button>
+      <button id="btnHum"  class="control-btn" onclick="switchChannel('humidite','Humidité')">Humidité</button>
     </div>
-
-
-
-    <!-- Period selection -->
 
     <div class="controls">
-
-      <button id="perMin" class="control-btn active" onclick="switchPeriod('-60s')">60 sec</button>
-
+      <button id="perMin"  class="control-btn active" onclick="switchPeriod('-60s')">60 sec</button>
       <button id="perHour" class="control-btn" onclick="switchPeriod('-60m')">60 min</button>
-
-      <button id="perDay" class="control-btn" onclick="switchPeriod('-60h')">60 h</button>
-
+      <button id="perDay"  class="control-btn" onclick="switchPeriod('-60h')">60 h</button>
       <button id="perYear" class="control-btn" onclick="switchPeriod('-365d')">365 jours</button>
-
     </div>
-
-
 
     <div class="chart-container">
-
       <canvas id="chart"></canvas>
-
     </div>
 
-
-
   </div>
-
-
-
 </div>
 
-
-
-
-
 <!-- =============================== -->
-
-<!-- PAGE PROJET                     -->
-
+<!-- PAGE PROJET -->
 <!-- =============================== -->
-
 <div id="project" class="section">
-
-  <button class="back" onclick="showSection('home')">â† Retour</button>
-
-
-
+  <button class="back" onclick="showSection('home')">← Retour</button>
   <div class="project-box">
-
-    <h1>Ã€ propos du projet Nebule Air</h1>
-
-
-
-    <p>
-
-      Nebule Air est un systÃ¨me de mesure en temps rÃ©el de la qualitÃ© de lâ€™air.
-
-      Il surveille les particules fines (PM1, PM2.5, PM10), ainsi que la tempÃ©rature
-
-      et l'humiditÃ© grÃ¢ce Ã  un capteur connectÃ©.
-
-    </p>
-
-
-
-    <p>
-
-      Les donnÃ©es sont stockÃ©es dans InfluxDB et affichÃ©es dans un tableau de bord interactif
-
-      permettant d'analyser lâ€™Ã©volution des mesures dans le temps.
-
-    </p>
-
-
-
-    <p>
-
-      Le projet vise Ã  sensibiliser Ã  la qualitÃ© de lâ€™air et fournir un outil fiable,
-
-      esthÃ©tique et simple d'utilisation.
-
-    </p>
-
+    <h1>À propos du projet Nebule Air</h1>
+    <p>Nebule Air mesure PM1, PM2.5, PM10, Température et Humidité en temps réel.</p>
+    <p>Les données sont stockées dans InfluxDB et affichées via ce dashboard.</p>
   </div>
-
 </div>
 
-
-
-
-
 <!-- =============================== -->
-
-<!-- SCRIPTS JS                      -->
-
+<!-- SCRIPT -->
 <!-- =============================== -->
-
 <script>
 
-
-
-// SECTION SWITCHING
-
+// Section switching
 function showSection(id) {
-
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
-
   document.getElementById(id).classList.add('active-section');
-
 }
 
-
-
-// InfluxDB Configuration
-
+// Proxy Render
 const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
-
-const INFLUX_TOKEN = "KtAB26SGGkxxO5m2hNQQxb9xK3ZXVnjR3odF4nO9zmWckbH7OOoaEQiOUVQ_smd3Pa7-4IQ52oNU8D33jhAO-Q==";
-
-const ORG = "4ec803aa73783a39";
-
 const BUCKET = "Nodule Air";
 
-
-
-// UI State
-
+// UI state
 let currentField = "pm1";
-
 let currentLabel = "PM1";
-
 let currentPeriod = "-60s";
 
-
-
-// Chart Setup
-
+// Chart.js
 let ctx = document.getElementById('chart').getContext('2d');
-
 let chart = new Chart(ctx, {
-
   type: "line",
-
   data: {
-
     labels: [],
-
     datasets: [{
-
       label: currentLabel,
-
       data: [],
-
-      fill: false,
-
       borderColor: "blue",
-
       borderWidth: 2,
-
-      tension: 0.2
-
+      tension: 0.2,
+      fill: false
     }]
-
   },
-
   options: {
-
     responsive: true,
-
-    maintainAspectRatio: false,
-
-    scales: {
-
-      y: { title: { display: true, text: "" } },
-
-      x: { title: { display: true, text: "Temps" } }
-
-    }
-
+    maintainAspectRatio: false
   }
-
 });
 
-
-
-// Change Channel
-
+// Switch channel
 function switchChannel(field, label) {
-
   currentField = field;
-
   currentLabel = label;
-
-
-
   document.querySelectorAll(".control-btn").forEach(btn => btn.classList.remove("active"));
-
   document.getElementById("btn" + label.replace(".", "")).classList.add("active");
-
-
-
   chart.data.datasets[0].label = label;
-
   fetchData();
-
 }
 
-
-
-// Change Period
-
+// Switch period
 function switchPeriod(period) {
-
   currentPeriod = period;
-
-
-
   document.getElementById("perMin").classList.remove("active");
-
   document.getElementById("perHour").classList.remove("active");
-
   document.getElementById("perDay").classList.remove("active");
-
   document.getElementById("perYear").classList.remove("active");
 
-
-
-  if (period === "-60s") document.getElementById("perMin").classList.add("active");
-
-  if (period === "-60m") document.getElementById("perHour").classList.add("active");
-
-  if (period === "-60h") document.getElementById("perDay").classList.add("active");
-
-  if (period === "-365d") document.getElementById("perYear").classList.add("active");
-
-
+  if (period === "-60s")  perMin.classList.add("active");
+  if (period === "-60m")  perHour.classList.add("active");
+  if (period === "-60h")  perDay.classList.add("active");
+  if (period === "-365d") perYear.classList.add("active");
 
   fetchData();
-
 }
 
-
-
-// Fetch InfluxDB Data
+// Fetch InfluxDB data through Render proxy
 async function fetchData() {
+
   const fluxQuery = `
   from(bucket: "${BUCKET}")
     |> range(start: ${currentPeriod})
@@ -568,23 +201,16 @@ async function fetchData() {
   });
 
   const raw = await response.text();
-
-  // DEBUG (optionnel)
-  console.log("RAW CSV:");
-  console.log(raw);
+  console.log("RAW CSV:", raw);
 
   const rows = raw.split("\n").filter(r => r.includes(",_field"));
-  
   let labels = [];
   let values = [];
 
   rows.forEach(r => {
     const cols = r.split(",");
-    const time = cols[5];
-    const value = parseFloat(cols[8]);
-
-    labels.push(time);
-    values.push(value);
+    labels.push(cols[5]);
+    values.push(parseFloat(cols[8]));
   });
 
   chart.data.labels = labels;
@@ -592,19 +218,10 @@ async function fetchData() {
   chart.update();
 }
 
-
-// Auto-refresh every 10 seconds
-
 setInterval(fetchData, 10000);
-
 fetchData();
-
-
 
 </script>
 
-
-
 </body>
-
 </html>
