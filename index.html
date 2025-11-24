@@ -1,153 +1,200 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>Nodule Air – Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f3f4f6;
-      margin: 0; padding: 0;
-      text-align: center;
+    body { 
+      font-family: Arial; 
+      margin: 20px; 
+      background: #f4f4f4;
     }
     h1 {
-      background: #1e3a8a;
-      color: white;
-      padding: 20px 0;
-      margin: 0 0 20px 0;
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 20px;
     }
-    #chart-container {
-      width: 90%;
-      max-width: 1000px;
-      margin: auto;
+    .graph-container { 
+      width: 95%; 
+      margin: 0 auto; 
+      max-width: 1200px; 
+    }
+    .controls { 
+      margin: 20px 0; 
+      text-align: center; 
+    }
+    .control-btn { 
+      padding: 10px 20px; 
+      margin: 0 5px; 
+      font-size: 16px;
+      background-color: #e3e3e3;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .control-btn.active {
+      background-color: #007BFF;
+      color: white;
+    }
+    .chart-container {
+      position: relative;
+      height: 60vh;
+      width: 100%;
       background: white;
-      padding: 20px;
+      padding: 15px;
       border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 
 <body>
 
-<h1>Nodule Air – Qualité de l'air en temps réel</h1>
+<h1>Nodule Air – Analyse temps réel</h1>
 
-<div id="chart-container">
-  <canvas id="airChart"></canvas>
+<div class="graph-container">
+
+  <!-- Channels -->
+  <div class="controls">
+    <button id="btnPM1" class="control-btn active" onclick="switchChannel('pm1','PM1')">PM1</button>
+    <button id="btnPM25" class="control-btn" onclick="switchChannel('pm25','PM2.5')">PM2.5</button>
+    <button id="btnPM10" class="control-btn" onclick="switchChannel('pm10','PM10')">PM10</button>
+    <button id="btnTemp" class="control-btn" onclick="switchChannel('temperature','Température')">Temp</button>
+    <button id="btnHum" class="control-btn" onclick="switchChannel('humidite','Humidité')">Humidité</button>
+  </div>
+
+  <!-- Period selection -->
+  <div class="controls">
+    <button id="perMin" class="control-btn active" onclick="switchPeriod('-60s')">60 sec</button>
+    <button id="perHour" class="control-btn" onclick="switchPeriod('-60m')">60 min</button>
+    <button id="perDay" class="control-btn" onclick="switchPeriod('-60h')">60 h</button>
+    <button id="perYear" class="control-btn" onclick="switchPeriod('-365d')">365 jours</button>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="chart"></canvas>
+  </div>
+
 </div>
 
-
 <script>
-// ----------------------------
-// CONFIGURATION INFLUXDB CLOUD
-// ----------------------------
+// ===============================
+// InfluxDB Cloud Configuration
+// ===============================
 const INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com/api/v2/query";
 const INFLUX_TOKEN = "KtAB26SGGkxxO5m2hNQQxb9xK3ZXVnjR3odF4nO9zmWckbH7OOoaEQiOUVQ_smd3Pa7-4IQ52oNU8D33jhAO-Q==";
 const ORG = "4ec803aa73783a39";
 const BUCKET = "Nodule Air";
 
-// ----------------------------
-// REQUÊTE FLUX
-// ----------------------------
-const fluxQuery = `
-from(bucket: "${BUCKET}")
-  |> range(start: -2h)
-  |> filter(fn: (r) => r._measurement == "mesures")
-  |> filter(fn: (r) => r._field == "pm1" or r._field == "pm25" or r._field == "pm10")
-  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
-  |> yield()
-`;
+// ===============================
+// UI State
+// ===============================
+let currentField = "pm1";
+let currentLabel = "PM1";
+let currentPeriod = "-60s";
 
+// ===============================
+// Chart.js Setup
+// ===============================
+let ctx = document.getElementById('chart').getContext('2d');
+let chart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [{
+      label: currentLabel,
+      data: [],
+      fill: false,
+      borderColor: "blue",
+      borderWidth: 2,
+      tension: 0.2
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { title: { display: true, text: "" } },
+      x: { title: { display: true, text: "Temps" } }
+    }
+  }
+});
 
-// ----------------------------
-// FONCTION POUR LIRE LES DONNÉES
-// ----------------------------
-async function fetchInflux() {
+// ===============================
+// UI interactions
+// ===============================
+function switchChannel(field, label) {
+  currentField = field;
+  currentLabel = label;
+
+  document.querySelectorAll(".control-btn").forEach(btn => btn.classList.remove("active"));
+  document.getElementById("btn" + label.replace(".", "")).classList.add("active");
+
+  chart.data.datasets[0].label = label;
+  fetchData();
+}
+
+function switchPeriod(period) {
+  currentPeriod = period;
+
+  document.getElementById("perMin").classList.remove("active");
+  document.getElementById("perHour").classList.remove("active");
+  document.getElementById("perDay").classList.remove("active");
+  document.getElementById("perYear").classList.remove("active");
+
+  if (period === "-60s") document.getElementById("perMin").classList.add("active");
+  if (period === "-60m") document.getElementById("perHour").classList.add("active");
+  if (period === "-60h") document.getElementById("perDay").classList.add("active");
+  if (period === "-365d") document.getElementById("perYear").classList.add("active");
+
+  fetchData();
+}
+
+// ===============================
+// Fetch data from InfluxDB
+// ===============================
+async function fetchData() {
+  const fluxQuery = `
+  from(bucket: "${BUCKET}")
+    |> range(start: ${currentPeriod})
+    |> filter(fn: (r) => r._measurement == "nebuleair")
+    |> filter(fn: (r) => r._field == "${currentField}")
+    |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+    |> yield()`;
+
   const response = await fetch(INFLUX_URL, {
     method: "POST",
     headers: {
       "Authorization": "Token " + INFLUX_TOKEN,
-      "Content-Type": "application/vnd.flux",
-      "Accept": "application/csv"
+      "Content-Type": "application/vnd.flux"
     },
     body: JSON.stringify({ query: fluxQuery, type: "flux" })
   });
 
-  const text = await response.text();
-
-  // Format CSV simplifié
-  const rows = text.split("\n").filter(r => r.includes("mesures"));
-
-  let times = [];
-  let pm1 = [];
-  let pm25 = [];
-  let pm10 = [];
+  const raw = await response.text();
+  const rows = raw.split("\n").filter(r => r.includes(",_field"));
+  
+  let labels = [];
+  let values = [];
 
   rows.forEach(r => {
     const cols = r.split(",");
     const time = cols[5];
-    const field = cols[7];
     const value = parseFloat(cols[8]);
-
-    if (!times.includes(time)) times.push(time);
-
-    switch (field) {
-      case "pm1":  pm1.push(value); break;
-      case "pm25": pm25.push(value); break;
-      case "pm10": pm10.push(value); break;
-    }
+    labels.push(time);
+    values.push(value);
   });
 
-  return { times, pm1, pm25, pm10 };
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = values;
+  chart.update();
 }
 
+// auto-refresh every 10 sec
+setInterval(fetchData, 10000);
 
-// ----------------------------
-// GRAPHIQUE CHART.JS
-// ----------------------------
-async function drawChart() {
-  const data = await fetchInflux();
-
-  const ctx = document.getElementById("airChart").getContext("2d");
-
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: data.times,
-      datasets: [
-        {
-          label: "PM1 (µg/m³)",
-          data: data.pm1,
-          borderColor: "blue",
-          fill: false
-        },
-        {
-          label: "PM2.5 (µg/m³)",
-          data: data.pm25,
-          borderColor: "red",
-          fill: false
-        },
-        {
-          label: "PM10 (µg/m³)",
-          data: data.pm10,
-          borderColor: "green",
-          fill: false
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: { title: { display: true, text: "Temps" } },
-        y: { title: { display: true, text: "µg/m³" } }
-      }
-    }
-  });
-}
-
-drawChart();
+fetchData();
 
 </script>
 
