@@ -553,50 +553,44 @@ function switchPeriod(period) {
 
 
 // Fetch InfluxDB Data
-const response = await fetch(INFLUX_URL, {
-  method: "POST",
-  body: fluxQuery   // ATTENTION : plus de JSON ici !
-});
+async function fetchData() {
+  const fluxQuery = `
+  from(bucket: "${BUCKET}")
+    |> range(start: ${currentPeriod})
+    |> filter(fn: (r) => r._measurement == "nebuleair")
+    |> filter(fn: (r) => r._field == "${currentField}")
+    |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+    |> yield()`;
 
-
-
+  const response = await fetch(INFLUX_URL, {
+    method: "POST",
+    body: fluxQuery
+  });
 
   const raw = await response.text();
 
+  // DEBUG (optionnel)
+  console.log("RAW CSV:");
+  console.log(raw);
+
   const rows = raw.split("\n").filter(r => r.includes(",_field"));
-
   
-
   let labels = [];
-
   let values = [];
 
-
-
   rows.forEach(r => {
-
     const cols = r.split(",");
-
     const time = cols[5];
-
     const value = parseFloat(cols[8]);
 
     labels.push(time);
-
     values.push(value);
-
   });
 
-
-
   chart.data.labels = labels;
-
   chart.data.datasets[0].data = values;
-
   chart.update();
-
 }
-
 
 
 // Auto-refresh every 10 seconds
