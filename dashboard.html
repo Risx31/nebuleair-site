@@ -1,93 +1,221 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>NebuleAir – Dashboard</title>
+// ---------------------------------------------------------------------------
+//  Dashboard.js – Version FIXEE & OPTIMISÉE
+// ---------------------------------------------------------------------------
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+// -------------------------------
+// Config InfluxDB Proxy
+// -------------------------------
+const API_URL = "https://nebuleairproxy.onrender.com/query";
 
-    <!-- Chart.js + plugins -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0"></script>
-    <script src="https://unpkg.com/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
+let chart;
 
+// ---------------------------------------------------------------------------
+// 1) Fonction générique pour interroger InfluxDB via ton proxy Render
+// ---------------------------------------------------------------------------
+async function loadInfluxData(period = "-1h", customStart = null, customEnd = null) {
+    let query = `
+        from(bucket: "nebuleair")
+            |> range(start: ${customStart ? `"${customStart}"` : period}, stop: ${customEnd ? `"${customEnd}"` : "now()"})
+            |> filter(fn: (r) => r.device == "NebuleAir" and r.location == "exterieur")
+            |> filter(fn: (r) => r._field == "pm1" or r._field == "pm25" or r._field == "pm10" or r._field == "temperature" or r._field == "humidite")
+            |> aggregateWindow(every: 1m, fn: mean)
+            |> yield(name: "mean")
+    `;
 
-    <!-- Your scripts -->
-    <script src="assets/js/common.js" defer></script>
-    <script src="assets/js/api.js" defer></script>
-    <script src="assets/js/dashboard.js" defer></script>
-</head>
+    const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: query
+    });
 
-<body class="light">
+    if (!res.ok) {
+        console.error("Erreur API Influx:", res.status, await res.text());
+        return null;
+    }
 
-    <header class="topbar">
-        <a href="index.html" class="back-btn">← Retour</a>
-        <div class="logo">Dashboard</div>
-        <button id="themeToggle" class="theme-btn">🌙</button>
-    </header>
+    const text = await res.text();
+    return parseInfluxCSV(text);
+}
 
-    <main class="dashboard-container">
+// ---------------------------------------------------------------------------
+// 2) Parse CSV Influx → structure exploitable
+// ---------------------------------------------------------------------------
+function parseInfluxCSV(csv) {
+    const lignes = csv.trim().split("\n").slice(1); // remove header
 
-        <!-- Valeurs LIVE -->
-        <section class="live-values">
-            <div class="value-box">
-                <span class="label">PM1</span>
-                <span id="livePM1" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">PM2.5</span>
-                <span id="livePM25" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">PM10</span>
-                <span id="livePM10" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">Température</span>
-                <span id="liveTemp" class="value">--</span>
-            </div>
-            <div class="value-box">
-                <span class="label">Humidité</span>
-                <span id="liveHum" class="value">--</span>
-            </div>
-        </section>
+    const data = {
+        pm1: [],
+        pm25: [],
+        pm10: [],
+        temperature: [],
+        humidite: []
+    };
 
-        <!-- Sélecteur des courbes -->
-        <section class="curve-select">
-            <label><input type="checkbox" class="curve" value="pm1" checked> PM1</label>
-            <label><input type="checkbox" class="curve" value="pm25" checked> PM2.5</label>
-            <label><input type="checkbox" class="curve" value="pm10" checked> PM10</label>
-            <label><input type="checkbox" class="curve" value="temperature" checked> Température</label>
-            <label><input type="checkbox" class="curve" value="humidite" checked> Humidité</label>
-        </section>
+    lignes.forEach(line => {
+        const cols = line.split(",");
 
-        <!-- Sélecteur de période -->
-        <section class="period-select">
-            <button class="period-btn active" data-period="-1h">1h</button>
-            <button class="period-btn" data-period="-6h">6h</button>
-            <button class="period-btn" data-period="-24h">24h</button>
-            <button class="period-btn" data-period="-7d">7j</button>
-            <button class="period-btn" data-period="-30d">30j</button>
+        if (cols.length < 10) return;
 
-            <input type="date" id="customStart">
-            <input type="date" id="customEnd">
-            <button id="applyCustom">Appliquer</button>
-        </section>
+        const time = new Date(cols[4]);
+        const value = parseFloat(cols[5]);
+        const field = cols[6];
 
-        <!-- Graphique -->
-        <section class="chart-card">
-            <canvas id="chart"></canvas>
-        </section>
+        if (!data[field]) return;
 
-        <!-- Actions -->
-        <section class="actions">
-            <button id="resetZoom" class="action-btn">🔍 Réinitialiser Zoom</button>
-            <button id="exportCSV" class="action-btn">📄 Exporter CSV</button>
-        </section>
+        data[field].push({ time, value });
+    });
 
-    </main>
+    return data;
+}
 
-</body>
-</html>
+// ---------------------------------------------------------------------------
+// 3) Mise à jour des encadrés LIVE (PM1 / PM25 / PM10 / Temp / Humidité)
+// ---------------------------------------------------------------------------
+function updateLiveValues(data) {
+    const map = {
+        livePM1: "pm1",
+        livePM25: "pm25",
+        livePM10: "pm10",
+        liveTemp: "temperature",
+        liveHum: "humidite"
+    };
+
+    for (const id in map) {
+        const field = map[id];
+        const element = document.getElementById(id);
+
+        if (!element) continue;
+
+        const arr = data[field];
+        if (arr && arr.length > 0) {
+            let val = arr[arr.length - 1].value;
+
+            if (field === "temperature") val = val.toFixed(1) + "°C";
+            else if (field === "humidite") val = val.toFixed(1) + "%";
+            else val = val.toFixed(1);
+
+            element.textContent = val;
+        } else {
+            element.textContent = "--";
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 4) Mise à jour du graphique
+// ---------------------------------------------------------------------------
+function updateChart(data) {
+    const ctx = document.getElementById("chart").getContext("2d");
+
+    const datasets = [];
+
+    const colors = {
+        pm1: "#007bff",
+        pm25: "#f0a500",
+        pm10: "#e63946",
+        temperature: "#2a9d8f",
+        humidite: "#00b4d8"
+    };
+
+    document.querySelectorAll(".curve").forEach(chk => {
+        if (chk.checked) {
+            const field = chk.value;
+
+            datasets.push({
+                label: field.toUpperCase(),
+                data: data[field].map(pt => ({ x: pt.time, y: pt.value })),
+                borderColor: colors[field],
+                backgroundColor: colors[field] + "55",
+                borderWidth: 2,
+                fill: false,
+                tension: 0.25
+            });
+        }
+    });
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: "line",
+        data: { datasets },
+        options: {
+            responsive: true,
+            scales: {
+                x: { type: "time", time: { tooltipFormat: "HH:mm" } },
+                y: { beginAtZero: false }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 5) Gestion période (1h / 6h / 24h / 7j / 30j)
+// ---------------------------------------------------------------------------
+document.querySelectorAll(".period-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+        document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        loadAndRender(btn.dataset.period);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// 6) Bouton "Appliquer" période personnalisée
+// ---------------------------------------------------------------------------
+document.getElementById("applyCustom").addEventListener("click", () => {
+    const s = document.getElementById("customStart").value;
+    const e = document.getElementById("customEnd").value;
+
+    if (!s || !e) return;
+    loadAndRender(null, s, e);
+});
+
+// ---------------------------------------------------------------------------
+// 7) Fonction centrale
+// ---------------------------------------------------------------------------
+async function loadAndRender(period = "-1h", start = null, end = null) {
+    const data = await loadInfluxData(period, start, end);
+
+    if (!data) return;
+
+    updateLiveValues(data);
+    updateChart(data);
+}
+
+// ---------------------------------------------------------------------------
+// 8) Initialisation auto (1h)
+// ---------------------------------------------------------------------------
+loadAndRender("-1h");
+
+// ---------------------------------------------------------------------------
+// 9) Bouton reset zoom
+// ---------------------------------------------------------------------------
+document.getElementById("resetZoom").addEventListener("click", () => {
+    if (chart && chart.resetZoom) chart.resetZoom();
+});
+
+// ---------------------------------------------------------------------------
+// 10) Bouton export CSV
+// ---------------------------------------------------------------------------
+document.getElementById("exportCSV").addEventListener("click", () => {
+    if (!chart) return;
+
+    let csv = "time,value,field\n";
+
+    chart.data.datasets.forEach(ds => {
+        ds.data.forEach(p => {
+            csv += `${p.x.toISOString()},${p.y},${ds.label}\n`;
+        });
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dashboard_export.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+});
