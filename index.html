@@ -1,61 +1,154 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-  <title>NebuleAir — Dashboard</title>
+  <meta charset="UTF-8">
+  <title>Nodule Air – Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-  <h1>Mesures NebuleAir</h1>
 
-  <canvas id="pmChart" width="400" height="200"></canvas>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      margin: 0; padding: 0;
+      text-align: center;
+    }
+    h1 {
+      background: #1e3a8a;
+      color: white;
+      padding: 20px 0;
+      margin: 0 0 20px 0;
+    }
+    #chart-container {
+      width: 90%;
+      max-width: 1000px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Nodule Air – Qualité de l'air en temps réel</h1>
+
+<div id="chart-container">
+  <canvas id="airChart"></canvas>
+</div>
+
 
 <script>
+// ----------------------------
+// CONFIGURATION INFLUXDB CLOUD
+// ----------------------------
 const INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com/api/v2/query";
-const INFLUX_TOKEN = "VOTRE_TOKEN";
+const INFLUX_TOKEN = "KtAB26SGGkxxO5m2hNQQxb9xK3ZXVnjR3odF4nO9zmWckbH7OOoaEQiOUVQ_smd3Pa7-4IQ52oNU8D33jhAO-Q==";
+const ORG = "4ec803aa73783a39";
+const BUCKET = "Nodule Air";
 
-// Requête Flux pour récupérer les données
-const query = `
-from(bucket: "VOTRE_BUCKET")
-  |> range(start: -1h)
+// ----------------------------
+// REQUÊTE FLUX
+// ----------------------------
+const fluxQuery = `
+from(bucket: "${BUCKET}")
+  |> range(start: -2h)
   |> filter(fn: (r) => r._measurement == "mesures")
-  |> filter(fn: (r) => r._field == "pm25")
+  |> filter(fn: (r) => r._field == "pm1" or r._field == "pm25" or r._field == "pm10")
+  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+  |> yield()
 `;
 
-async function fetchData() {
-  const res = await fetch(INFLUX_URL, {
+
+// ----------------------------
+// FONCTION POUR LIRE LES DONNÉES
+// ----------------------------
+async function fetchInflux() {
+  const response = await fetch(INFLUX_URL, {
     method: "POST",
     headers: {
       "Authorization": "Token " + INFLUX_TOKEN,
-      "Content-Type": "application/vnd.flux"
+      "Content-Type": "application/vnd.flux",
+      "Accept": "application/csv"
     },
-    body: query
+    body: JSON.stringify({ query: fluxQuery, type: "flux" })
   });
 
-  const json = await res.json();
+  const text = await response.text();
+
+  // Format CSV simplifié
+  const rows = text.split("\n").filter(r => r.includes("mesures"));
+
   let times = [];
-  let values = [];
+  let pm1 = [];
+  let pm25 = [];
+  let pm10 = [];
 
-  json.tables.forEach(t => {
-    t.records.forEach(r => {
-      times.push(r._time);
-      values.push(r._value);
-    })
+  rows.forEach(r => {
+    const cols = r.split(",");
+    const time = cols[5];
+    const field = cols[7];
+    const value = parseFloat(cols[8]);
+
+    if (!times.includes(time)) times.push(time);
+
+    switch (field) {
+      case "pm1":  pm1.push(value); break;
+      case "pm25": pm25.push(value); break;
+      case "pm10": pm10.push(value); break;
+    }
   });
 
-  const ctx = document.getElementById('pmChart');
+  return { times, pm1, pm25, pm10 };
+}
+
+
+// ----------------------------
+// GRAPHIQUE CHART.JS
+// ----------------------------
+async function drawChart() {
+  const data = await fetchInflux();
+
+  const ctx = document.getElementById("airChart").getContext("2d");
+
   new Chart(ctx, {
-    type: 'line',
+    type: "line",
     data: {
-      labels: times,
-      datasets: [{ 
-        label: 'PM2.5',
-        data: values,
-      }]
+      labels: data.times,
+      datasets: [
+        {
+          label: "PM1 (µg/m³)",
+          data: data.pm1,
+          borderColor: "blue",
+          fill: false
+        },
+        {
+          label: "PM2.5 (µg/m³)",
+          data: data.pm25,
+          borderColor: "red",
+          fill: false
+        },
+        {
+          label: "PM10 (µg/m³)",
+          data: data.pm10,
+          borderColor: "green",
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: "Temps" } },
+        y: { title: { display: true, text: "µg/m³" } }
+      }
     }
   });
 }
 
-fetchData();
+drawChart();
+
 </script>
 
 </body>
