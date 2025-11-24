@@ -81,18 +81,7 @@ function initChart() {
                     time: { unit: "minute" }
                 }
             },
-            plugins: {
-                zoom: {
-                    zoom: {
-                        wheel: { enabled: true },
-                        pinch: { enabled: true },
-                        mode: "x"
-                    },
-                    pan: {
-                        enabled: true,
-                        mode: "x"
-                    }
-                }
+plugins: {}
             }
         }
     });
