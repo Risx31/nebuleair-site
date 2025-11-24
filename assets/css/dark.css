@@ -1,0 +1,152 @@
+/* ==========================================================
+   DARK.CSS — Ajustements pour le thème sombre
+   S'applique uniquement quand <body class="dark">
+   ========================================================== */
+
+/* ------------------------------
+   GLOBAL
+------------------------------ */
+body.dark {
+    background: #121212;
+    color: #e8e8e8;
+}
+
+/* ------------------------------
+   CARDS MATERIAL
+------------------------------ */
+body.dark .home-card,
+body.dark .status-card,
+body.dark .settings-card,
+body.dark .value-box,
+body.dark .chart-card {
+    background: #1e1e1e;
+    color: #f1f1f1;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+}
+
+/* ------------------------------
+   TOPBAR
+------------------------------ */
+body.dark .topbar {
+    background: #1a1a1a;
+    color: #fafafa;
+}
+
+/* ------------------------------
+   BACK BUTTON
+------------------------------ */
+body.dark .back-btn {
+    color: #eaeaea;
+}
+
+/* ------------------------------
+   HOME BUTTONS
+------------------------------ */
+body.dark .home-btn {
+    background: #4c8dff;
+}
+
+body.dark .home-btn:hover {
+    background: #2962ff;
+}
+
+/* ------------------------------
+   LIVE VALUE CARDS
+------------------------------ */
+body.dark .value-box {
+    background: #1b1b1b;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.7);
+}
+
+/* ------------------------------
+   PERIOD BUTTONS
+------------------------------ */
+body.dark .period-btn {
+    background: #333333;
+    color: #eee;
+}
+
+body.dark .period-btn.active {
+    background: #4c8dff;
+    color: white;
+}
+
+body.dark #applyCustom {
+    background: #4c8dff;
+}
+
+/* ------------------------------
+   INPUTS (calendrier)
+------------------------------ */
+body.dark input[type="date"] {
+    background: #1e1e1e;
+    color: #e8e8e8;
+    border: 1px solid #444;
+}
+
+/* ------------------------------
+   ACTION BUTTONS (Reset Zoom / Export CSV)
+------------------------------ */
+body.dark .action-btn {
+    background: #4c8dff;
+    color: white;
+}
+
+body.dark .action-btn:hover {
+    background: #2962ff;
+}
+
+/* ------------------------------
+   STATUS BADGES
+------------------------------ */
+body.dark .status-badge.ok {
+    background: #2e7d32;
+}
+
+body.dark .status-badge.err {
+    background: #c62828;
+}
+
+/* ------------------------------
+   SETTINGS PAGE
+------------------------------ */
+body.dark .settings-card {
+    background: #1e1e1e;
+}
+
+body.dark .danger-btn {
+    background: #d32f2f;
+}
+
+/* ------------------------------
+   SWITCH MATERIAL
+------------------------------ */
+body.dark .slider {
+    background: #444;
+}
+body.dark input:checked + .slider {
+    background: #4c8dff;
+}
+
+/* ------------------------------
+   GRID CHART
+------------------------------ */
+body.dark .chart-card canvas {
+    background: #1c1c1c !important;
+}
+
+/* ------------------------------
+   CHECKBOXES
+------------------------------ */
+body.dark .curve-select label {
+    color: #ddd;
+}
+
+/* ------------------------------
+   SELECT DROPDOWN
+------------------------------ */
+body.dark select.settings-select {
+    background: #1f1f1f;
+    color: #e8e8e8;
+    border: 1px solid #444;
+}
