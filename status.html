@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>NebuleAir – Status</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/dashboard.css"> <!-- pour les cards Material -->
+
+    <!-- JS -->
+    <script src="assets/js/common.js" defer></script>
+    <script src="assets/js/api.js" defer></script>
+    <script src="assets/js/status.js" defer></script>
+</head>
+
+<body class="light">
+
+    <header class="topbar">
+        <a href="index.html" class="back-btn">← Retour</a>
+        <div class="logo">État du Capteur</div>
+        <button id="themeToggle" class="theme-btn">🌙</button>
+    </header>
+
+    <main class="status-container">
+
+        <h2 class="section-title">Informations Générales</h2>
+
+        <section class="status-grid">
+
+            <div class="status-card">
+                <div class="status-label">Dernière mise à jour</div>
+                <div id="statusLastUpdate" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Uptime estimé</div>
+                <div id="statusUptime" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">RSSI WiFi</div>
+                <div id="statusRSSI" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Statut NextPM</div>
+                <div id="statusNextPM" class="status-value status-badge">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Statut BME280</div>
+                <div id="statusBME" class="status-value status-badge">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Qualité globale de l'air</div>
+                <div id="statusAQI" class="status-value">--</div>
+                <div id="statusAQIMessage" class="status-subtext">--</div>
+            </div>
+
+        </section>
+
+        <h2 class="section-title">Dernières Mesures Reçues</h2>
+
+        <section class="status-grid">
+
+            <div class="status-card">
+                <div class="status-label">PM1</div>
+                <div id="statusPM1" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">PM2.5</div>
+                <div id="statusPM25" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">PM10</div>
+                <div id="statusPM10" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Température</div>
+                <div id="statusTemp" class="status-value">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Humidité</div>
+                <div id="statusHum" class="status-value">--</div>
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+</html>
