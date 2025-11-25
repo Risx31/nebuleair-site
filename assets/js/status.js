@@ -47,10 +47,9 @@ async function getLatest(field) {
     const raw = await response.text();
     console.log("RAW LATEST (" + field + "):", raw);
 
-    // On découpe les lignes et on prend la vraie ligne de données
     const lines = raw.trim().split("\n");
 
-    // Influx CSV : la ligne data commence par ",_result"
+    // Influx CSV : la vraie ligne data commence par ",_result"
     const dataLine = lines.find(line => line.startsWith(",_result"));
 
     if (!dataLine) {
@@ -59,8 +58,8 @@ async function getLatest(field) {
 
     const cols = dataLine.split(",");
 
-    const time = cols[5];                // colonne _time
-    const value = parseFloat(cols[6]);   // colonne _value
+    const time = cols[5];              // colonne _time
+    const value = parseFloat(cols[6]); // colonne _value
 
     return {
         time,
@@ -75,9 +74,9 @@ async function getLatest(field) {
 function computeAQI(pm25) {
     if (pm25 === null) return { aqi: null, message: "Indisponible" };
 
-    if (pm25 <= 12) return { aqi: 1, message: "Excellent" };
-    if (pm25 <= 35) return { aqi: 2, message: "Bon" };
-    if (pm25 <= 55) return { aqi: 3, message: "Moyen" };
+    if (pm25 <= 12)  return { aqi: 1, message: "Excellent" };
+    if (pm25 <= 35)  return { aqi: 2, message: "Bon" };
+    if (pm25 <= 55)  return { aqi: 3, message: "Moyen" };
     if (pm25 <= 150) return { aqi: 4, message: "Mauvais" };
     if (pm25 <= 250) return { aqi: 5, message: "Très mauvais" };
     return { aqi: 6, message: "Dangereux" };
@@ -88,15 +87,8 @@ function computeAQI(pm25) {
 // ======================================
 
 async function loadStatus() {
-
-    // Fetch all last values in parallel
-    const [
-        pm1,
-        pm25,
-        pm10,
-        temp,
-        hum
-    ] = await Promise.all([
+    // Fetch all last values en parallèle
+    const [pm1, pm25, pm10, temp, hum] = await Promise.all([
         getLatest("pm1"),
         getLatest("pm25"),
         getLatest("pm10"),
@@ -104,7 +96,7 @@ async function loadStatus() {
         getLatest("humidite")
     ]);
 
-    // Fill values
+    // Valeurs des cartes
     document.getElementById("statusPM1").innerText  = pm1.value  ?? "--";
     document.getElementById("statusPM25").innerText = pm25.value ?? "--";
     document.getElementById("statusPM10").innerText = pm10.value ?? "--";
@@ -115,36 +107,22 @@ async function loadStatus() {
     document.getElementById("statusHum").innerText =
         hum.value !== null ? `${hum.value} %` : "--";
 
-    // Last update based on PM25 timestamp (ou autre si PM2.5 absent)
-// Last update = most recent time among all fields
-const times = [pm1.time, pm25.time, pm10.time, temperature.time, humidite.time].filter(Boolean);
-const last = times.length ? times.reduce((a, b) => a > b ? a : b) : null;
+    // Dernière mise à jour = time le plus récent parmi tous les champs
+    const times = [pm1.time, pm25.time, pm10.time, temp.time, hum.time].filter(Boolean);
+    const last = times.length ? times.reduce((a, b) => (a > b ? a : b)) : null;
 
-document.getElementById("statusLastUpdate").innerText = last
-    ? formatDateTime(last)
-    : "--";
+    document.getElementById("statusLastUpdate").innerText = last
+        ? formatDateTime(last)
+        : "--";
 
-// Uptime estimé = temps écoulé depuis cette dernière mesure
-if (last) {
-    const t = new Date(last);
-    const diffMs = Date.now() - t.getTime();
-    const hours = Math.floor(diffMs / 3600000);
-    const mins = Math.floor((diffMs % 3600000) / 60000);
-    document.getElementById("statusUptime").innerText = `${hours}h ${mins}min`;
-} else {
-    document.getElementById("statusUptime").innerText = "--";
-}
-
-
-    // Compute uptime (approx = "now - last update")
+    // Uptime estimé = temps écoulé depuis cette dernière mesure
     if (last) {
         const t = new Date(last);
         const diffMs = Date.now() - t.getTime();
         const hours = Math.floor(diffMs / 3600000);
-        const mins = Math.floor((diffMs % 3600000) / 60000);
+        const mins  = Math.floor((diffMs % 3600000) / 60000);
 
-        document.getElementById("statusUptime").innerText =
-            `${hours}h ${mins}min`;
+        document.getElementById("statusUptime").innerText = `${hours}h ${mins}min`;
     } else {
         document.getElementById("statusUptime").innerText = "--";
     }
@@ -154,19 +132,21 @@ if (last) {
     document.getElementById("statusAQI").innerText        = aqi.aqi ?? "--";
     document.getElementById("statusAQIMessage").innerText = aqi.message;
 
-    // Sensor health (basic logic)
+    // Santé des capteurs (logique simple)
     document.getElementById("statusNextPM").innerText =
         (pm1.value !== null || pm25.value !== null || pm10.value !== null)
-            ? "OK" : "Erreur";
+            ? "OK"
+            : "Erreur";
 
     document.getElementById("statusBME").innerText =
         (temp.value !== null && hum.value !== null)
-            ? "OK" : "Erreur";
+            ? "OK"
+            : "Erreur";
 
-    // RSSI (à remplir plus tard si tu l’envoies à Influx)
+    // RSSI (à remplir plus tard si tu l’envoies dans Influx)
     document.getElementById("statusRSSI").innerText = "--";
 }
 
-// Auto refresh every 15 sec
+// Auto-refresh toutes les 15 s
 setInterval(loadStatus, 15000);
 loadStatus();
