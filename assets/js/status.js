@@ -6,6 +6,26 @@ const DEFAULT_FIELD = "pm25"; // Pour l'AQI
 const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
 const BUCKET = "Nodule Air";
 
+// Format "2025-11-24T16:29:24.511Z" -> "24/11/2025 à 17:29"
+function formatDateTime(isoString) {
+    if (!isoString) return "--";
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString; // au cas où
+
+    const date = d.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+    });
+
+    const time = d.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+
+    return `${date} à ${time}`;
+}
+
 // =============================
 //  FETCH LATEST VALUE FOR ANY FIELD
 // =============================
@@ -96,8 +116,25 @@ async function loadStatus() {
         hum.value !== null ? `${hum.value} %` : "--";
 
     // Last update based on PM25 timestamp (ou autre si PM2.5 absent)
-    const last = pm25.time || pm1.time || pm10.time || temp.time || hum.time;
-    document.getElementById("statusLastUpdate").innerText = last ?? "--";
+// Last update = most recent time among all fields
+const times = [pm1.time, pm25.time, pm10.time, temperature.time, humidite.time].filter(Boolean);
+const last = times.length ? times.reduce((a, b) => a > b ? a : b) : null;
+
+document.getElementById("statusLastUpdate").innerText = last
+    ? formatDateTime(last)
+    : "--";
+
+// Uptime estimé = temps écoulé depuis cette dernière mesure
+if (last) {
+    const t = new Date(last);
+    const diffMs = Date.now() - t.getTime();
+    const hours = Math.floor(diffMs / 3600000);
+    const mins = Math.floor((diffMs % 3600000) / 60000);
+    document.getElementById("statusUptime").innerText = `${hours}h ${mins}min`;
+} else {
+    document.getElementById("statusUptime").innerText = "--";
+}
+
 
     // Compute uptime (approx = "now - last update")
     if (last) {
