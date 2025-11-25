@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="assets/js/nouveau.js" defer></script>
+
     <meta charset="UTF-8">
     <title>NebuleAir – Nouveautés (test)</title>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -19,26 +23,47 @@
 <main class="status-container">
 
     <!-- COMPARAISON -->
-    <section class="status-section">
-        <h2>Mode comparaison – PM2.5</h2>
-        <p class="status-section-sub">
-            Comparaison de la moyenne des 24&nbsp;dernières heures avec la journée précédente.
-        </p>
-        <div class="status-grid">
-            <div class="status-card">
-                <div class="status-label">Aujourd'hui (24&nbsp;h)</div>
-                <div id="cmpPm25Today" class="status-value">--</div>
-            </div>
-            <div class="status-card">
-                <div class="status-label">Hier (24&nbsp;h précédentes)</div>
-                <div id="cmpPm25Yesterday" class="status-value">--</div>
-            </div>
-            <div class="status-card">
-                <div class="status-label">Écart</div>
-                <div id="cmpPm25Delta" class="status-value small">--</div>
-            </div>
+<section class="status-section">
+    <h2>Comparaison graphique</h2>
+    <p class="status-section-sub">
+        Choisis une grandeur et deux plages de temps pour comparer les courbes.
+    </p>
+
+    <div class="compare-controls">
+        <div class="compare-row">
+            <label for="cmpField">Grandeur :</label>
+            <select id="cmpField">
+                <option value="pm1">PM1 (µg/m³)</option>
+                <option value="pm25" selected>PM2.5 (µg/m³)</option>
+                <option value="pm10">PM10 (µg/m³)</option>
+                <option value="temperature">Température (°C)</option>
+                <option value="humidite">Humidité (%)</option>
+            </select>
         </div>
-    </section>
+
+        <div class="compare-row">
+            <span class="compare-label">Plage 1 :</span>
+            <input type="datetime-local" id="cmpRange1Start">
+            <span>→</span>
+            <input type="datetime-local" id="cmpRange1End">
+        </div>
+
+        <div class="compare-row">
+            <span class="compare-label">Plage 2 :</span>
+            <input type="datetime-local" id="cmpRange2Start">
+            <span>→</span>
+            <input type="datetime-local" id="cmpRange2End">
+        </div>
+
+        <button id="cmpBtn" class="primary-btn">
+            Comparer
+        </button>
+    </div>
+
+    <div class="chart-card">
+        <canvas id="compareChart" height="120"></canvas>
+    </div>
+</section>
 
     <!-- HISTORIQUE UPTIME -->
     <section class="status-section">
