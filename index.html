@@ -1,272 +1,33 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Nebule Air</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta charset="UTF-8">
+    <title>Nebule Air – Accueil</title>
 
-  <style>
-    body {
-      font-family: Arial;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 0;
-    }
-    .section { display: none; padding: 30px; }
-    .active-section { display: block; }
+    <!-- Style général -->
+    <link rel="stylesheet" href="assets/css/style.css">
 
-    .home-container {
-      height: 100vh; display: flex; align-items: center; justify-content: center;
-    }
-    .home-box {
-      background: white; padding: 40px; border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15); text-align: center;
-      width: 90%; max-width: 420px;
-    }
-    .btn {
-      width: 100%; margin: 10px 0; padding: 15px; font-size: 18px;
-      border-radius: 8px; border: none; cursor: pointer; transition: 0.2s;
-    }
-    .btn-blue { background: #007BFF; color: white; }
-    .btn-blue:hover { background: #005fcc; }
-    .btn-grey { background: #e3e3e3; }
-    .btn-grey:hover { background: #d0d0d0; }
-
-    .graph-container { width: 95%; margin: 0 auto; max-width: 1200px; }
-    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; }
-
-    .controls { margin: 20px 0; text-align: center; }
-    .control-btn {
-      padding: 10px 20px; margin: 0 5px; font-size: 16px;
-      background-color: #e3e3e3; border: 1px solid #ccc;
-      border-radius: 4px; cursor: pointer;
-    }
-    .control-btn.active { background-color: #007BFF; color: white; }
-
-    .chart-container {
-      position: relative; height: 60vh; width: 100%;
-      background: white; padding: 15px; border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .project-box {
-      background: white; max-width: 800px; margin: auto;
-      padding: 30px; border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    p { font-size: 18px; line-height: 1.6; }
-    .back {
-      margin-bottom: 20px; display: inline-block; padding: 12px 20px;
-      background: #007BFF; color: white; border-radius: 8px; cursor: pointer;
-    }
-  </style>
+    <!-- Script commun (thème clair/sombre, etc.) -->
+    <script src="assets/js/common.js" defer></script>
 </head>
 
-<body>
+<body class="light">
 
-<!-- =============================== -->
-<!-- PAGE ACCUEIL -->
-<!-- =============================== -->
-<div id="home" class="section active-section home-container">
-  <div class="home-box">
-    <h1>Nebule Air</h1>
-    <button class="btn btn-blue" onclick="showSection('dashboard')">Accéder au Dashboard</button>
-    <button class="btn btn-grey" onclick="showSection('project')">À propos du projet</button>
-  </div>
-</div>
+    <header class="topbar">
+        <div class="logo">Nebule Air</div>
+        <button id="themeToggle" class="theme-btn">🌙</button>
+    </header>
 
-<!-- =============================== -->
-<!-- PAGE DASHBOARD -->
-<!-- =============================== -->
-<div id="dashboard" class="section">
-  <button class="back" onclick="showSection('home')">← Retour</button>
-  <h1>Nebule Air – Analyse temps réel</h1>
+    <main class="home-container">
+        <div class="home-card">
+            <h1>Bienvenue sur NebuleAir</h1>
+            <p class="subtitle">Surveillance de la qualité de l’air en temps réel</p>
 
-  <div class="graph-container">
+            <a href="dashboard.html" class="home-btn">📊 Accéder au Dashboard</a>
+            <a href="status.html" class="home-btn">📡 État du Capteur</a>
+            <a href="settings.html" class="home-btn">⚙️ Paramètres</a>
+        </div>
+    </main>
 
-    <!-- Choix de la grandeur -->
-    <div class="controls">
-      <button id="btnPM1"  class="control-btn active" onclick="switchChannel('pm1','PM1')">PM1</button>
-      <button id="btnPM25" class="control-btn" onclick="switchChannel('pm25','PM2.5')">PM2.5</button>
-      <button id="btnPM10" class="control-btn" onclick="switchChannel('pm10','PM10')">PM10</button>
-      <button id="btnTemp" class="control-btn" onclick="switchChannel('temperature','Température')">Temp</button>
-      <button id="btnHum"  class="control-btn" onclick="switchChannel('humidite','Humidité')">Humidité</button>
-    </div>
-
-    <!-- Période -->
-    <div class="controls">
-      <button id="perMin"  class="control-btn active" onclick="switchPeriod('-60s')">60 sec</button>
-      <button id="perHour" class="control-btn" onclick="switchPeriod('-60m')">60 min</button>
-      <button id="perDay"  class="control-btn" onclick="switchPeriod('-60h')">60 h</button>
-      <button id="perYear" class="control-btn" onclick="switchPeriod('-365d')">365 jours</button>
-    </div>
-
-    <div class="chart-container">
-      <canvas id="chart"></canvas>
-    </div>
-
-  </div>
-</div>
-
-<!-- =============================== -->
-<!-- PAGE PROJET -->
-<!-- =============================== -->
-<div id="project" class="section">
-  <button class="back" onclick="showSection('home')">← Retour</button>
-  <div class="project-box">
-    <h1>À propos du projet Nebule Air</h1>
-    <p>Nebule Air mesure PM1, PM2.5, PM10, Température et Humidité en temps réel.</p>
-    <p>Les données sont stockées dans InfluxDB et affichées via ce dashboard.</p>
-  </div>
-</div>
-
-<!-- =============================== -->
-<!-- SCRIPT -->
-<!-- =============================== -->
-<script>
-// ===== Navigation sections =====
-function showSection(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
-  document.getElementById(id).classList.add('active-section');
-}
-
-// ===== Config Influx / Proxy =====
-const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
-const BUCKET     = "Nodule Air";
-
-// État UI
-let currentField  = "pm1";
-let currentLabel  = "PM1";
-let currentPeriod = "-60s";
-
-// ===== Chart.js =====
-const ctx = document.getElementById('chart').getContext('2d');
-const chart = new Chart(ctx, {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [{
-      label: currentLabel,
-      data: [],
-      borderColor: "blue",
-      borderWidth: 2,
-      tension: 0.2,
-      fill: false
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        beginAtZero: true
-      }
-    }
-  }
-});
-
-// ===== Changement de grandeur =====
-function switchChannel(field, label) {
-  currentField = field;
-  currentLabel = label;
-
-  // boutons actifs
-  ["PM1","PM2.5","PM10","Température","Humidité"].forEach(lbl => {
-    const id = "btn" + lbl.replace(".", "").replace("é","e").replace("è","e").replace("û","u");
-    const btn = document.getElementById(id);
-    if (btn) btn.classList.toggle("active", lbl === label);
-  });
-
-  chart.data.datasets[0].label = label;
-  fetchData();
-}
-
-// ===== Changement de période =====
-function switchPeriod(period) {
-  currentPeriod = period;
-
-  document.getElementById("perMin").classList.toggle("active",  period === "-60s");
-  document.getElementById("perHour").classList.toggle("active", period === "-60m");
-  document.getElementById("perDay").classList.toggle("active",  period === "-60h");
-  document.getElementById("perYear").classList.toggle("active", period === "-365d");
-
-  fetchData();
-}
-
-// ===== Parse CSV Influx correctement =====
-function parseInfluxCsv(raw) {
-  // On vire lignes vides et lignes de métadonnées (#datatype, #group, etc.)
-  const lines = raw
-    .split("\n")
-    .map(l => l.trim())
-    .filter(l => l !== "" && !l.startsWith("#"));
-
-  if (lines.length < 2) {
-    console.warn("CSV vide ou incomplet");
-    return { labels: [], values: [] };
-  }
-
-  // Première vraie ligne = en-tête
-  const header = lines[0].split(",");
-  const timeIndex  = header.indexOf("_time");
-  const valueIndex = header.indexOf("_value");
-
-  if (timeIndex === -1 || valueIndex === -1) {
-    console.warn("Impossible de trouver _time ou _value dans l'en-tête:", header);
-    return { labels: [], values: [] };
-  }
-
-  const labels = [];
-  const values = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",");
-    if (cols.length <= Math.max(timeIndex, valueIndex)) continue;
-
-    const t = cols[timeIndex];
-    const v = parseFloat(cols[valueIndex]);
-
-    if (!isNaN(v)) {
-      labels.push(t);
-      values.push(v);
-    }
-  }
-
-  return { labels, values };
-}
-
-// ===== Récupération des données via le proxy Render =====
-async function fetchData() {
-  const fluxQuery = `
-from(bucket: "${BUCKET}")
-  |> range(start: ${currentPeriod})
-  |> filter(fn: (r) => r._measurement == "nebuleair")
-  |> filter(fn: (r) => r._field == "${currentField}")
-  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
-  |> yield()`;
-
-  try {
-    const response = await fetch(INFLUX_URL, {
-      method: "POST",
-      body: fluxQuery
-    });
-
-    const raw = await response.text();
-    console.log("RAW CSV:", raw.substring(0, 500) + "...");
-
-    const { labels, values } = parseInfluxCsv(raw);
-
-    chart.data.labels = labels.map(t => new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
-    chart.data.datasets[0].data = values;
-    chart.update();
-
-  } catch (err) {
-    console.error("Erreur lors de la récupération Influx:", err);
-  }
-}
-
-// Chargement initial
-fetchData();
-</script>
 </body>
 </html>
