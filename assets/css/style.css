@@ -316,4 +316,40 @@ input:checked + .slider:before {
 .anomaly-list li {
     margin-bottom: 0.25rem;
 }
+.compare-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.compare-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.compare-row label,
+.compare-label {
+    font-weight: 600;
+    min-width: 80px;
+}
+
+.compare-row input[type="datetime-local"],
+.compare-row select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 0.9rem;
+}
+
+.chart-card {
+    background: var(--card-bg, #fff);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
 
