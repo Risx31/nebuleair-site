@@ -27,15 +27,24 @@ async function getLatest(field) {
     const raw = await response.text();
     console.log("RAW LATEST (" + field + "):", raw);
 
-    const rows = raw.split("\n").filter(r => r.includes(",_field"));
+    // On découpe les lignes et on prend la vraie ligne de données
+    const lines = raw.trim().split("\n");
 
-    if (rows.length === 0) return { value: null, time: null };
+    // Influx CSV : la ligne data commence par ",_result"
+    const dataLine = lines.find(line => line.startsWith(",_result"));
 
-    const cols = rows[0].split(",");
+    if (!dataLine) {
+        return { value: null, time: null };
+    }
+
+    const cols = dataLine.split(",");
+
+    const time = cols[5];                // colonne _time
+    const value = parseFloat(cols[6]);   // colonne _value
 
     return {
-        time: cols[5],
-        value: parseFloat(cols[6]),
+        time,
+        value: isNaN(value) ? null : value
     };
 }
 
@@ -76,13 +85,17 @@ async function loadStatus() {
     ]);
 
     // Fill values
-    document.getElementById("statusPM1").innerText = pm1.value ?? "--";
+    document.getElementById("statusPM1").innerText  = pm1.value  ?? "--";
     document.getElementById("statusPM25").innerText = pm25.value ?? "--";
     document.getElementById("statusPM10").innerText = pm10.value ?? "--";
-    document.getElementById("statusTemp").innerText = temp.value ? temp.value + " °C" : "--";
-    document.getElementById("statusHum").innerText = hum.value ? hum.value + " %" : "--";
 
-    // Last update based on PM25 timestamp
+    document.getElementById("statusTemp").innerText =
+        temp.value !== null ? `${temp.value} °C` : "--";
+
+    document.getElementById("statusHum").innerText =
+        hum.value !== null ? `${hum.value} %` : "--";
+
+    // Last update based on PM25 timestamp (ou autre si PM2.5 absent)
     const last = pm25.time || pm1.time || pm10.time || temp.time || hum.time;
     document.getElementById("statusLastUpdate").innerText = last ?? "--";
 
@@ -101,18 +114,19 @@ async function loadStatus() {
 
     // AQI
     const aqi = computeAQI(pm25.value);
-    document.getElementById("statusAQI").innerText = aqi.aqi ?? "--";
+    document.getElementById("statusAQI").innerText        = aqi.aqi ?? "--";
     document.getElementById("statusAQIMessage").innerText = aqi.message;
 
     // Sensor health (basic logic)
     document.getElementById("statusNextPM").innerText =
-        pm1.value !== null || pm25.value !== null || pm10.value !== null
+        (pm1.value !== null || pm25.value !== null || pm10.value !== null)
             ? "OK" : "Erreur";
 
     document.getElementById("statusBME").innerText =
-        temp.value !== null && hum.value !== null ? "OK" : "Erreur";
+        (temp.value !== null && hum.value !== null)
+            ? "OK" : "Erreur";
 
-    // RSSI (if you send it later → via MQTT or Influx)
+    // RSSI (à remplir plus tard si tu l’envoies à Influx)
     document.getElementById("statusRSSI").innerText = "--";
 }
 
