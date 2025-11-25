@@ -1,48 +1,21 @@
+// =============================
+//  CONFIG
+// =============================
+
 const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
 const BUCKET = "Nodule Air";
 
-// Moyenne simple
-function mean(arr) {
-    if (!arr.length) return null;
-    return arr.reduce((s, x) => s + x, 0) / arr.length;
-}
+let compareChart = null;
 
 // =============================
-//  Dernière valeur pour un champ
+//  Helpers Influx
 // =============================
-async function getLatest(field) {
+
+// Récupère une série entre deux dates ISO (string)
+async function getSeriesRange(field, startISO, endISO) {
     const fluxQuery = `
     from(bucket: "${BUCKET}")
-      |> range(start: -2d)
-      |> filter(fn: (r) => r._measurement == "nebuleair")
-      |> filter(fn: (r) => r._field == "${field}")
-      |> last()
-  `;
-
-    const response = await fetch(INFLUX_URL, {
-        method: "POST",
-        body: fluxQuery
-    });
-
-    const raw = await response.text();
-    const lines = raw.trim().split("\n");
-    const dataLine = lines.find(l => l.startsWith(",_result"));
-    if (!dataLine) return { time: null, value: null };
-
-    const cols = dataLine.split(",");
-    const time = cols[5];
-    const value = parseFloat(cols[6]);
-
-    return { time, value: isNaN(value) ? null : value };
-}
-
-// =============================
-//  Série temporelle sur N heures
-// =============================
-async function getSeries(field, hours) {
-    const fluxQuery = `
-    from(bucket: "${BUCKET}")
-      |> range(start: -${hours}h)
+      |> range(start: time(v: "${startISO}"), stop: time(v: "${endISO}"))
       |> filter(fn: (r) => r._measurement == "nebuleair")
       |> filter(fn: (r) => r._field == "${field}")
       |> keep(columns: ["_time", "_value"])
@@ -54,7 +27,14 @@ async function getSeries(field, hours) {
         body: fluxQuery
     });
 
+    if (!response.ok) {
+        console.error("Erreur Influx:", response.status, response.statusText);
+        throw new Error("Erreur de requête Influx");
+    }
+
     const raw = await response.text();
+    console.log("RAW SERIES", field, startISO, endISO, raw);
+
     const lines = raw.trim().split("\n").filter(l => l.startsWith(",_result"));
 
     return lines
@@ -68,260 +48,212 @@ async function getSeries(field, hours) {
         .filter(p => !isNaN(p.value));
 }
 
-// =============================
-//  Uptime (sur 24 h) depuis une série
-// =============================
-function computeUptimeFromSeries(series) {
-    const totalMinutes = 24 * 60;
-    if (!series.length) return { percent: 0, missingMinutes: totalMinutes };
-
-    const minutesSet = new Set(
-        series.map(p => Math.floor(new Date(p.time).getTime() / 60000))
-    );
-
-    const minutesCount = minutesSet.size;
-    const percent = Math.min(
-        100,
-        +((minutesCount / totalMinutes) * 100).toFixed(1)
-    );
-
-    return {
-        percent,
-        missingMinutes: totalMinutes - minutesCount
-    };
+// Convertit la série en points {x: Date, y: value} pour Chart.js time scale
+function toChartPoints(series) {
+    return series.map(p => ({
+        x: new Date(p.time),
+        y: p.value
+    }));
 }
 
 // =============================
-//  Tendance (hausse / baisse / stable)
+//  Helpers UI
 // =============================
-function computeTrend(series) {
-    if (!series || series.length < 4) {
-        return { dir: "stable", text: "Données insuffisantes" };
-    }
 
-    const n = Math.min(series.length, 20);
-    const subset = series.slice(-n);
-    const half = Math.floor(subset.length / 2);
-
-    const older = subset.slice(0, half);
-    const recent = subset.slice(half);
-
-    const avgOlder = mean(older.map(p => p.value));
-    const avgRecent = mean(recent.map(p => p.value));
-
-    if (avgOlder === null || avgRecent === null) {
-        return { dir: "stable", text: "Données insuffisantes" };
-    }
-
-    const delta = avgRecent - avgOlder;
-    const rel = delta / (Math.abs(avgOlder) > 1e-3 ? Math.abs(avgOlder) : 1);
-
-    if (Math.abs(delta) < 0.1 && Math.abs(rel) < 0.05) {
-        return { dir: "stable", text: "Stable" };
-    }
-    if (delta > 0) return { dir: "up", text: "En hausse" };
-    return { dir: "down", text: "En baisse" };
-}
-
-// =============================
-//  Helpers DOM
-// =============================
-function setText(id, text) {
+function getInputValue(id) {
     const el = document.getElementById(id);
-    if (el) el.innerText = text;
+    return el ? el.value : "";
 }
 
-function updateTrendCard(prefix, series, latest) {
-    const t = computeTrend(series);
-
-    const arrowEl = document.getElementById(prefix + "Arrow");
-    const valueEl = document.getElementById(prefix + "Value");
-    const textEl = document.getElementById(prefix + "Text");
-
-    if (valueEl && latest && latest.value != null) {
-        valueEl.innerText = latest.value.toFixed(1);
-    }
-
-    if (arrowEl) {
-        arrowEl.classList.remove("trend-up", "trend-down", "trend-stable");
-
-        let symbol = "→";
-        let klass = "trend-stable";
-
-        if (t.dir === "up") { symbol = "▲"; klass = "trend-up"; }
-        else if (t.dir === "down") { symbol = "▼"; klass = "trend-down"; }
-
-        arrowEl.innerText = symbol;
-        arrowEl.classList.add(klass);
-    }
-
-    if (textEl) {
-        textEl.innerText = t.text;
-    }
+function showToast(msg) {
+    // Version simple : alert. Tu peux faire plus joli plus tard.
+    alert(msg);
 }
 
 // =============================
-//  Détection d'anomalies
+//  Création / mise à jour du graphe
 // =============================
-function detectAnomalies(latest, uptimePercent) {
-    const messages = [];
-    const now = Date.now();
 
-    const times = [
-        latest.pm1.time,
-        latest.pm25.time,
-        latest.pm10.time,
-        latest.temp.time,
-        latest.hum.time
-    ]
-        .filter(Boolean)
-        .map(t => new Date(t).getTime());
+function updateCompareChart(field, series1, series2, label1, label2) {
+    const ctx = document.getElementById("compareChart");
+    if (!ctx) return;
 
-    if (!times.length) {
-        messages.push("Aucune donnée récente reçue.");
-        return messages;
+    const data1 = toChartPoints(series1);
+    const data2 = toChartPoints(series2);
+
+    if (!data1.length && !data2.length) {
+        showToast("Aucune donnée à afficher pour ces plages.");
+        return;
     }
 
-    const last = Math.max(...times);
-    const diffMin = (now - last) / 60000;
+    const datasets = [];
 
-    if (diffMin > 10) {
-        messages.push(`Aucune mesure depuis ${diffMin.toFixed(0)} min.`);
+    if (data1.length) {
+        datasets.push({
+            label: `${label1}`,
+            data: data1,
+            borderColor: "rgba(37, 99, 235, 1)",        // bleu
+            backgroundColor: "rgba(37, 99, 235, 0.15)",
+            tension: 0.2,
+            pointRadius: 0,
+            borderWidth: 2
+        });
     }
 
-    if (uptimePercent < 90) {
-        messages.push(`Disponibilité faible sur 24 h : ${uptimePercent.toFixed(1)} %.`);
+    if (data2.length) {
+        datasets.push({
+            label: `${label2}`,
+            data: data2,
+            borderColor: "rgba(239, 68, 68, 1)",        // rouge
+            backgroundColor: "rgba(239, 68, 68, 0.15)",
+            tension: 0.2,
+            pointRadius: 0,
+            borderWidth: 2
+        });
     }
 
-    if (latest.pm25.value != null && latest.pm25.value > 35) {
-        messages.push(`PM2.5 élevé : ${latest.pm25.value.toFixed(1)} µg/m³.`);
+    const yLabelMap = {
+        pm1: "Concentration (µg/m³)",
+        pm25: "Concentration (µg/m³)",
+        pm10: "Concentration (µg/m³)",
+        temperature: "Température (°C)",
+        humidite: "Humidité (%)"
+    };
+
+    const yTitle = yLabelMap[field] || "Valeur";
+
+    if (compareChart) {
+        compareChart.destroy();
     }
 
-    if (latest.pm10.value != null && latest.pm10.value > 50) {
-        messages.push(`PM10 élevé : ${latest.pm10.value.toFixed(1)} µg/m³.`);
-    }
-
-    if (latest.hum.value != null && (latest.hum.value < 15 || latest.hum.value > 85)) {
-        messages.push(`Humidité atypique : ${latest.hum.value.toFixed(1)} %.`);
-    }
-
-    if (latest.temp.value != null && (latest.temp.value < -5 || latest.temp.value > 40)) {
-        messages.push(`Température atypique : ${latest.temp.value.toFixed(1)} °C.`);
-    }
-
-    return messages;
-}
-
-// =============================
-//  Chargement principal
-// =============================
-async function loadNewFeatures() {
-
-    // Dernières valeurs
-    const [pm1, pm25, pm10, temp, hum] = await Promise.all([
-        getLatest("pm1"),
-        getLatest("pm25"),
-        getLatest("pm10"),
-        getLatest("temperature"),
-        getLatest("humidite")
-    ]);
-
-    const latest = { pm1, pm25, pm10, temp, hum };
-
-    // -------------------------
-    // 1) COMPARAISON PM2.5 24 h / 24 h
-    // -------------------------
-    const pm25Series48h = await getSeries("pm25", 48);
-
-    const now = Date.now();
-    const ms24h = 24 * 3600 * 1000;
-    const today = [];
-    const yesterday = [];
-
-    pm25Series48h.forEach(p => {
-        const t = new Date(p.time).getTime();
-        if (t >= now - ms24h) {
-            today.push(p.value);
-        } else if (t >= now - 2 * ms24h) {
-            yesterday.push(p.value);
+    compareChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            datasets
+        },
+        options: {
+            parsing: false, // on donne {x,y}
+            responsive: true,
+            interaction: {
+                mode: "nearest",
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: "top"
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const v = ctx.parsed.y;
+                            return `${ctx.dataset.label} : ${v.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: "time",
+                    time: {
+                        unit: "hour"
+                    },
+                    title: {
+                        display: true,
+                        text: "Date / heure"
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: yTitle
+                    }
+                }
+            }
         }
     });
+}
 
-    const avgToday = mean(today);
-    const avgYesterday = mean(yesterday);
+// =============================
+//  Logique du bouton "Comparer"
+// =============================
 
-    if (avgToday != null) {
-        setText("cmpPm25Today", avgToday.toFixed(1) + " µg/m³");
-    }
-    if (avgYesterday != null) {
-        setText("cmpPm25Yesterday", avgYesterday.toFixed(1) + " µg/m³");
-    }
+async function handleCompareClick() {
+    const field = getInputValue("cmpField");
 
-    if (avgToday != null && avgYesterday != null) {
-        const delta = avgToday - avgYesterday;
-        const sign = delta > 0 ? "+" : "";
-        setText(
-            "cmpPm25Delta",
-            `${sign}${delta.toFixed(1)} µg/m³ vs hier`
-        );
-    } else {
-        setText("cmpPm25Delta", "Données insuffisantes");
+    const r1Start = getInputValue("cmpRange1Start");
+    const r1End   = getInputValue("cmpRange1End");
+    const r2Start = getInputValue("cmpRange2Start");
+    const r2End   = getInputValue("cmpRange2End");
+
+    if (!field || !r1Start || !r1End || !r2Start || !r2End) {
+        showToast("Merci de remplir les deux plages de temps et de choisir une grandeur.");
+        return;
     }
 
-    // -------------------------
-    // 2) UPTIME 24 h (PM2.5)
-    // -------------------------
-    const pm25Series24h = pm25Series48h.filter(
-        p => new Date(p.time).getTime() >= now - ms24h
-    );
-    const uptime = computeUptimeFromSeries(pm25Series24h);
+    const start1ISO = new Date(r1Start).toISOString();
+    const end1ISO   = new Date(r1End).toISOString();
+    const start2ISO = new Date(r2Start).toISOString();
+    const end2ISO   = new Date(r2End).toISOString();
 
-    setText("uptimePercent", uptime.percent.toFixed(1) + " %");
-    setText("uptimeDetail", `${uptime.missingMinutes} minutes manquantes sur 24 h`);
+    if (start1ISO >= end1ISO || start2ISO >= end2ISO) {
+        showToast("Chaque plage doit avoir une date de début strictement avant la date de fin.");
+        return;
+    }
 
-    // -------------------------
-    // 3) TENDANCES (1 h)
-    // -------------------------
-    const [pm1Series, pm25Series1h, pm10Series, tempSeries, humSeries] =
-        await Promise.all([
-            getSeries("pm1", 1),
-            getSeries("pm25", 1),
-            getSeries("pm10", 1),
-            getSeries("temperature", 1),
-            getSeries("humidite", 1)
+    try {
+        // Série 1 & 2 en parallèle
+        const [series1, series2] = await Promise.all([
+            getSeriesRange(field, start1ISO, end1ISO),
+            getSeriesRange(field, start2ISO, end2ISO)
         ]);
 
-    updateTrendCard("trendPm1", pm1Series, pm1);
-    updateTrendCard("trendPm25", pm25Series1h, pm25);
-    updateTrendCard("trendPm10", pm10Series, pm10);
-    updateTrendCard("trendTemp", tempSeries, temp);
-    updateTrendCard("trendHum", humSeries, hum);
-
-    // -------------------------
-    // 4) ANOMALIES
-    // -------------------------
-    const anomalies = detectAnomalies(latest, uptime.percent);
-    const list = document.getElementById("anomalyList");
-
-    if (list) {
-        list.innerHTML = "";
-        if (!anomalies.length) {
-            const li = document.createElement("li");
-            li.textContent = "Rien à signaler, tout est nominal 😎";
-            list.appendChild(li);
-        } else {
-            anomalies.forEach(msg => {
-                const li = document.createElement("li");
-                li.textContent = msg;
-                list.appendChild(li);
-            });
-        }
+        updateCompareChart(
+            field,
+            series1,
+            series2,
+            "Plage 1",
+            "Plage 2"
+        );
+    } catch (e) {
+        console.error(e);
+        showToast("Erreur lors du chargement des données.");
     }
 }
 
-// Lancement + refresh toutes les 30 s
-document.addEventListener("DOMContentLoaded", () => {
-    loadNewFeatures();
-    setInterval(loadNewFeatures, 30000);
-});
+// =============================
+//  Init
+// =============================
 
+document.addEventListener("DOMContentLoaded", () => {
+
+    const btn = document.getElementById("cmpBtn");
+    if (btn) {
+        btn.addEventListener("click", handleCompareClick);
+    }
+
+    // Option : préremplir automatiquement les plages (ex : aujourd’hui vs hier)
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const yesterdayStart = new Date(oneHourAgo.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    function setDt(id, d) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // format YYYY-MM-DDTHH:MM pour datetime-local
+        const pad = (n) => String(n).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        const mm = pad(d.getMonth() + 1);
+        const dd = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mi = pad(d.getMinutes());
+        el.value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    }
+
+    // Par défaut : plage 1 = dernière heure, plage 2 = même heure la veille
+    setDt("cmpRange1Start", oneHourAgo);
+    setDt("cmpRange1End", now);
+    setDt("cmpRange2Start", yesterdayStart);
+    setDt("cmpRange2End", yesterdayEnd);
+});
