@@ -275,3 +275,45 @@ input:checked + .slider:before {
         margin: 20px;
     }
 }
+.status-section-sub {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.75rem;
+}
+
+.status-value.small {
+    font-size: 1.4rem;
+}
+
+.trend-main {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.trend-arrow {
+    font-size: 1.4rem;
+}
+
+.trend-up {
+    color: #16a34a; /* vert */
+}
+
+.trend-down {
+    color: #dc2626; /* rouge */
+}
+
+.trend-stable {
+    color: #6b7280; /* gris */
+}
+
+.anomaly-list {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: 0.95rem;
+}
+
+.anomaly-list li {
+    margin-bottom: 0.25rem;
+}
+
