@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>NebuleAir – Nouveautés (test)</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <script src="assets/js/common.js" defer></script>
+    <script src="assets/js/nouveau.js" defer></script>
+</head>
+<body class="light">
+<header class="topbar">
+    <button class="back-btn" onclick="window.history.back()">← Retour</button>
+    <h1 class="page-title">Nouveautés (test)</h1>
+    <div class="topbar-right">
+        <button id="themeToggle" class="theme-btn">🌙</button>
+    </div>
+</header>
+
+<main class="status-container">
+
+    <!-- COMPARAISON -->
+    <section class="status-section">
+        <h2>Mode comparaison – PM2.5</h2>
+        <p class="status-section-sub">
+            Comparaison de la moyenne des 24&nbsp;dernières heures avec la journée précédente.
+        </p>
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-label">Aujourd'hui (24&nbsp;h)</div>
+                <div id="cmpPm25Today" class="status-value">--</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">Hier (24&nbsp;h précédentes)</div>
+                <div id="cmpPm25Yesterday" class="status-value">--</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">Écart</div>
+                <div id="cmpPm25Delta" class="status-value small">--</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HISTORIQUE UPTIME -->
+    <section class="status-section">
+        <h2>Historique d'uptime (24&nbsp;h)</h2>
+        <p class="status-section-sub">
+            Estimation de la disponibilité des mesures (basée sur PM2.5).
+        </p>
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-label">Disponibilité sur 24&nbsp;h</div>
+                <div id="uptimePercent" class="status-value">--</div>
+                <div id="uptimeDetail" class="status-sub">--</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TENDANCES -->
+    <section class="status-section">
+        <h2>Tendances sur 1&nbsp;h</h2>
+        <p class="status-section-sub">
+            Comparaison de la première et de la dernière demi-heure pour voir si chaque grandeur est en hausse, en baisse ou stable.
+        </p>
+        <div class="status-grid trend-grid">
+            <div class="status-card">
+                <div class="status-label">PM1</div>
+                <div class="trend-main">
+                    <span id="trendPm1Value" class="status-value small">--</span>
+                    <span id="trendPm1Arrow" class="trend-arrow">→</span>
+                </div>
+                <div id="trendPm1Text" class="status-sub">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">PM2.5</div>
+                <div class="trend-main">
+                    <span id="trendPm25Value" class="status-value small">--</span>
+                    <span id="trendPm25Arrow" class="trend-arrow">→</span>
+                </div>
+                <div id="trendPm25Text" class="status-sub">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">PM10</div>
+                <div class="trend-main">
+                    <span id="trendPm10Value" class="status-value small">--</span>
+                    <span id="trendPm10Arrow" class="trend-arrow">→</span>
+                </div>
+                <div id="trendPm10Text" class="status-sub">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Température</div>
+                <div class="trend-main">
+                    <span id="trendTempValue" class="status-value small">--</span>
+                    <span id="trendTempArrow" class="trend-arrow">→</span>
+                </div>
+                <div id="trendTempText" class="status-sub">--</div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-label">Humidité</div>
+                <div class="trend-main">
+                    <span id="trendHumValue" class="status-value small">--</span>
+                    <span id="trendHumArrow" class="trend-arrow">→</span>
+                </div>
+                <div id="trendHumText" class="status-sub">--</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ANOMALIES -->
+    <section class="status-section">
+        <h2>Détection d'anomalies (bêta)</h2>
+        <p class="status-section-sub">
+            Règles simples pour repérer une perte de données ou des valeurs atypiques.
+        </p>
+        <ul id="anomalyList" class="anomaly-list">
+            <li>Chargement…</li>
+        </ul>
+    </section>
+
+</main>
+
+</body>
+</html>
