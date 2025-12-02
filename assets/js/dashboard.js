@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentRange = "1h";
   let customRange = null;
 
-  // Dates de référence (en objets Date)
+  // Timestamps bruts (Date)
   let labelsRaw = [];
 
   // Séries de valeurs
@@ -265,13 +265,17 @@ document.addEventListener("DOMContentLoaded", function () {
     setCard("hum-value", series.humidite, 0);
   }
 
-  // Construire un dataset avec des trous quand il y a un gros gap
+  // ============================
+  //  GESTION DES TROUS (CAPTEUR DÉCONNECTÉ)
+  // ============================
+
   function buildDatasetWithGaps(values) {
     if (!labelsRaw.length) return [];
 
+    // On estime le pas "normal" (médiane des écarts de temps)
     const deltas = [];
     for (let i = 1; i < labelsRaw.length; i++) {
-      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // ms
+      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
     }
 
     let step = 0;
@@ -280,6 +284,8 @@ document.addEventListener("DOMContentLoaded", function () {
       step = deltas[Math.floor(deltas.length / 2)];
     }
 
+    // Si deux points sont séparés de plus de 3× le pas normal,
+    // on considère que c'est une déconnexion.
     const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
     const data = [];
 
@@ -288,9 +294,13 @@ document.addEventListener("DOMContentLoaded", function () {
       const v = values[i];
 
       if (i > 0) {
-        const dt = t - labelsRaw[i - 1];
+        const prevT = labelsRaw[i - 1];
+        const dt = t - prevT;
+
         if (dt > threshold) {
-          data.push({ x: t, y: null });
+          // Point "trou" au milieu du gap pour casser la courbe
+          const mid = new Date(prevT.getTime() + dt / 2);
+          data.push({ x: mid, y: null });
         }
       }
 
@@ -333,6 +343,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const temp = results[3];
       const hum = results[4];
 
+      // Timestamps de référence
       labelsRaw = pm1.labels.map(function (t) { return new Date(t); });
 
       series.pm1 = pm1.values;
