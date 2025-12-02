@@ -1,11 +1,11 @@
-# 🌬️ Projet ModuleAir / NebuleAir  
+# Projet ModuleAir / NebuleAir  
 Capteurs fixes de qualité de l’air – BUT Mesures Physiques
 
 Ce dépôt regroupe le code et la documentation des systèmes **ModuleAir** (air intérieur) et **NebuleAir** (air extérieur), développés dans le cadre du BUT Mesures Physiques pour analyser la qualité de l’air sur le campus de l’IUT et autour du parc Longchamp / St Jérôme. :contentReference[oaicite:0]{index=0}
 
 ---
 
-## 📌 Objectifs du projet
+## Objectifs du projet
 
 - Concevoir **des capteurs fixes** de qualité de l’air intérieur et extérieur.
 - Assurer **l’acquisition, l’envoi et la visualisation** des données (temps réel + historique).
@@ -14,7 +14,7 @@ Ce dépôt regroupe le code et la documentation des systèmes **ModuleAir** (air
 
 ---
 
-## 🧩 Les deux systèmes
+## Les deux systèmes
 
 ### 1. ModuleAir – Air intérieur
 
@@ -50,7 +50,7 @@ Capteur dédié aux mesures en extérieur sur le campus / alentours. :contentRef
 
 ---
 
-## 🛠️ Architecture globale
+## Architecture globale
 
 ### Matériel (hardware)
 
@@ -72,28 +72,4 @@ Capteur dédié aux mesures en extérieur sur le campus / alentours. :contentRef
 - **Dashboard / UI** : site web (Chart.js, etc.), Node-RED UI ou front maison
 - (Optionnel) Flows Node-RED pour parsing, stockage, visualisation simple
 
----
 
-## 📁 Structure du dépôt
-
-> ⚠️ À adapter selon votre organisation réelle, mais l’idée est la suivante :
-
-```text
-.
-├── firmware/
-│   ├── moduleair/        # Code ESP32 pour le capteur intérieur
-│   └── nebuleair/        # Code ESP32 pour le capteur extérieur
-├── dashboard/
-│   ├── index.html        # Page principale du dashboard
-│   ├── assets/
-│   │   ├── css/
-│   │   └── js/
-│   │       └── dashboard.js  # Requêtes InfluxDB / API + graphiques
-├── server/
-│   ├── node-red/         # Flows Node-RED (JSON) si utilisés
-│   └── api/              # Scripts backend (HTTP, MQTT bridge, etc.)
-├── docs/
-│   ├── etude_de_cas.pdf  # Sujet / cahier des charges
-│   ├── schema_hw/        # Schémas électroniques, brochages
-│   └── rapports/         # Docs techniques et scientifiques
-└── README.md
