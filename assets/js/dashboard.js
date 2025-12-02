@@ -265,51 +265,34 @@ document.addEventListener("DOMContentLoaded", function () {
     setCard("hum-value", series.humidite, 0);
   }
 
-// Construire un dataset avec des trous quand il y a un gros gap
-function buildDatasetWithGaps(values) {
-  if (!labelsRaw.length) return [];
+  // Construire un dataset avec des trous quand il y a un gros gap
+  function buildDatasetWithGaps(values) {
+    if (!labelsRaw.length) return [];
 
-  // On estime le pas "normal" entre deux mesures (médiane des écarts)
-  const deltas = [];
-  for (let i = 1; i < labelsRaw.length; i++) {
-    deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
-  }
-
-  let step = 0;
-  if (deltas.length) {
-    deltas.sort(function (a, b) { return a - b; });
-    step = deltas[Math.floor(deltas.length / 2)];
-  }
-
-  // Si deux points sont séparés de plus de 3× le pas normal,
-  // on considère que c'est une coupure (déconnexion).
-  const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
-  const data = [];
-
-  for (let i = 0; i < labelsRaw.length; i++) {
-    const t = labelsRaw[i];
-    const v = values[i];
-
-    if (i > 0) {
-      const prevT = labelsRaw[i - 1];
-      const dt = t - prevT;
-
-      if (dt > threshold) {
-        // On ajoute un point "trou" au milieu du gap pour casser la courbe
-        const mid = new Date(prevT.getTime() + dt / 2);
-        data.push({ x: mid, y: null });
-      }
+    const deltas = [];
+    for (let i = 1; i < labelsRaw.length; i++) {
+      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // ms
     }
 
-    data.push({
-      x: t,
-      y: (typeof v === "number" && !isNaN(v)) ? v : null
-    });
-  }
+    let step = 0;
+    if (deltas.length) {
+      deltas.sort(function (a, b) { return a - b; });
+      step = deltas[Math.floor(deltas.length / 2)];
+    }
 
-  return data;
-}
+    const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
+    const data = [];
 
+    for (let i = 0; i < labelsRaw.length; i++) {
+      const t = labelsRaw[i];
+      const v = values[i];
+
+      if (i > 0) {
+        const dt = t - labelsRaw[i - 1];
+        if (dt > threshold) {
+          data.push({ x: t, y: null });
+        }
+      }
 
       data.push({
         x: t,
