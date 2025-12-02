@@ -81,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
         mode: "index",
         intersect: false
       },
+      spanGaps: false,
       plugins: {
         legend: {
           position: "top",
@@ -250,16 +251,36 @@ from(bucket: "${BUCKET}")
     setCard("hum-value", series.humidite, 0);
   }
 
-  function updateChart() {
-    // IMPORTANT : on envoie des points {x: Date, y: valeur}
-    mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm1[i] }));
-    mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm25[i] }));
-    mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm10[i] }));
-    mainChart.data.datasets[3].data = labelsRaw.map((t, i) => ({ x: t, y: series.temperature[i] }));
-    mainChart.data.datasets[4].data = labelsRaw.map((t, i) => ({ x: t, y: series.humidite[i] }));
+ function updateChart() {
+  // IMPORTANT: on envoie des points {x: Date, y: valeur}
+  mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({
+    x: t,
+    y: isNaN(series.pm1[i]) ? null : series.pm1[i]
+  }));
 
-    mainChart.update();
-  }
+  mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({
+    x: t,
+    y: isNaN(series.pm25[i]) ? null : series.pm25[i]
+  }));
+
+  mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({
+    x: t,
+    y: isNaN(series.pm10[i]) ? null : series.pm10[i]
+  }));
+
+  mainChart.data.datasets[3].data = labelsRaw.map((t, i) => ({
+    x: t,
+    y: isNaN(series.temperature[i]) ? null : series.temperature[i]
+  }));
+
+  mainChart.data.datasets[4].data = labelsRaw.map((t, i) => ({
+    x: t,
+    y: isNaN(series.humidite[i]) ? null : series.humidite[i]
+  }));
+
+  mainChart.update();
+}
+
 
   // ============================
   //  CHARGEMENT GLOBAL
