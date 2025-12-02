@@ -10,7 +10,7 @@ Ce dépôt regroupe le code et la documentation des systèmes **ModuleAir** (air
 - Concevoir **des capteurs fixes** de qualité de l’air intérieur et extérieur.
 - Assurer **l’acquisition, l’envoi et la visualisation** des données (temps réel + historique).
 - Proposer un **prototype réaliste “quasi-industriel”** : boîtier, électronique, firmware, dashboard.
-- Préparer **une démonstration client** avec comparaison de la qualité d’air intérieur / extérieur. :contentReference[oaicite:1]{index=1}  
+- Préparer **une démonstration client** avec comparaison de la qualité d’air intérieur / extérieur. 
 
 ---
 
@@ -18,12 +18,12 @@ Ce dépôt regroupe le code et la documentation des systèmes **ModuleAir** (air
 
 ### 1. ModuleAir – Air intérieur
 
-Capteur dédié aux mesures en salle / laboratoire (ex. IMERA, départements de l’IUT). :contentReference[oaicite:2]{index=2}  
+Capteur dédié aux mesures en exterieur  
 
 **Fonctionnalités principales :**
 
 - Mesure :
-  - CO₂ : **MH-Z19**
+  - Température et humidité : **BME-280**
   - Particules fines : **NextPM (Tera)**
 - Affichage sur **écran LED matriciel 64×32**  
   - Rafraîchissement toutes les 2 minutes  
