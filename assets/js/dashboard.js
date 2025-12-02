@@ -1,13 +1,15 @@
 // assets/js/dashboard.js
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("[NebuleAir] Dashboard JS chargé");
+
   const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
   const BUCKET = "Nodule Air";
 
   let currentRange = "1h";
   let customRange = null;
 
-  // Toutes les dates brutes (en Date()) – on part sur PM1 comme référence
+  // Dates de référence (en objets Date)
   let labelsRaw = [];
 
   // Séries de valeurs
@@ -23,12 +25,17 @@ document.addEventListener("DOMContentLoaded", () => {
   //  INIT CHART.JS
   // ============================
 
-  const ctx = document.getElementById("mainChart").getContext("2d");
+  const canvas = document.getElementById("mainChart");
+  if (!canvas) {
+    console.error("[NebuleAir] Canvas #mainChart introuvable");
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
 
   const mainChart = new Chart(ctx, {
     type: "line",
     data: {
-      // pas de labels fixes : chaque point a son x = Date
       datasets: [
         {
           label: "PM1",
@@ -89,7 +96,6 @@ document.addEventListener("DOMContentLoaded", () => {
         mode: "index",
         intersect: false
       },
-      spanGaps: false, // sécurité globale
       plugins: {
         legend: {
           position: "top",
@@ -99,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
           mode: "index",
           intersect: false,
           callbacks: {
-            title: (items) => {
+            title: function (items) {
               if (!items.length) return "";
               const x = items[0].parsed.x;
               return new Date(x).toLocaleString("fr-FR", {
@@ -142,11 +148,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function parseInfluxCsv(raw) {
     const lines = raw
       .split("\n")
-      .map(l => l.trim())
-      .filter(l => l !== "" && !l.startsWith("#"));
+      .map(function (l) { return l.trim(); })
+      .filter(function (l) { return l !== "" && !l.startsWith("#"); });
 
     if (lines.length < 2) {
-      console.warn("CSV vide ou incomplet");
+      console.warn("[NebuleAir] CSV vide ou incomplet");
       return { labels: [], values: [] };
     }
 
@@ -155,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const valueIndex = header.indexOf("_value");
 
     if (timeIndex === -1 || valueIndex === -1) {
-      console.warn("Impossible de trouver _time ou _value dans l'en-tête:", header);
+      console.warn("[NebuleAir] _time ou _value manquant dans l'en-tête", header);
       return { labels: [], values: [] };
     }
 
@@ -170,17 +176,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const v = parseFloat(cols[valueIndex]);
 
       if (!isNaN(v)) {
-        labels.push(t);      // string ISO
-        values.push(v);      // nombre
+        labels.push(t);
+        values.push(v);
       }
     }
 
-    return { labels, values };
+    return { labels: labels, values: values };
   }
 
   function buildRangeClause() {
     if (customRange) {
-      return `|> range(start: ${customRange.start}, stop: ${customRange.stop})`;
+      return "|> range(start: " + customRange.start + ", stop: " + customRange.stop + ")";
     }
 
     switch (currentRange) {
@@ -219,14 +225,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const rangeClause = buildRangeClause();
     const every = getWindowEvery();
 
-    const fluxQuery = `
-from(bucket: "${BUCKET}")
+    const fluxQuery =
+`from(bucket: "${BUCKET}")
   ${rangeClause}
   |> filter(fn: (r) => r._measurement == "nebuleair")
   |> filter(fn: (r) => r._field == "${field}")
   |> aggregateWindow(every: ${every}, fn: mean, createEmpty: false)
-  |> yield()
-`;
+  |> yield()`;
 
     const response = await fetch(INFLUX_URL, {
       method: "POST",
@@ -242,7 +247,8 @@ from(bucket: "${BUCKET}")
   // ============================
 
   function updateCards() {
-    const setCard = (id, arr, digits = 1) => {
+    function setCard(id, arr, digits) {
+      if (digits === undefined) digits = 1;
       const el = document.getElementById(id);
       if (!el) return;
       if (!arr || arr.length === 0 || isNaN(arr[arr.length - 1])) {
@@ -250,7 +256,7 @@ from(bucket: "${BUCKET}")
       } else {
         el.textContent = arr[arr.length - 1].toFixed(digits);
       }
-    };
+    }
 
     setCard("pm1-value", series.pm1, 1);
     setCard("pm25-value", series.pm25, 1);
@@ -259,23 +265,22 @@ from(bucket: "${BUCKET}")
     setCard("hum-value", series.humidite, 0);
   }
 
-  // Construit un dataset avec des "trous" quand il y a un gros gap de temps
+  // Construire un dataset avec des trous quand il y a un gros gap
   function buildDatasetWithGaps(values) {
     if (!labelsRaw.length) return [];
 
-    // Calcul du pas temporel "normal" (médiane des deltas)
     const deltas = [];
     for (let i = 1; i < labelsRaw.length; i++) {
-      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
+      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // ms
     }
 
     let step = 0;
     if (deltas.length) {
-      deltas.sort((a, b) => a - b);
+      deltas.sort(function (a, b) { return a - b; });
       step = deltas[Math.floor(deltas.length / 2)];
     }
 
-    const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER; // au-delà => trou
+    const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
     const data = [];
 
     for (let i = 0; i < labelsRaw.length; i++) {
@@ -285,14 +290,13 @@ from(bucket: "${BUCKET}")
       if (i > 0) {
         const dt = t - labelsRaw[i - 1];
         if (dt > threshold) {
-          // on insère un point "cassure" avant la nouvelle séquence
           data.push({ x: t, y: null });
         }
       }
 
       data.push({
         x: t,
-        y: typeof v === "number" && !isNaN(v) ? v : null
+        y: (typeof v === "number" && !isNaN(v)) ? v : null
       });
     }
 
@@ -315,7 +319,7 @@ from(bucket: "${BUCKET}")
 
   async function loadAllData() {
     try {
-      const [pm1, pm25, pm10, temp, hum] = await Promise.all([
+      const results = await Promise.all([
         fetchField("pm1"),
         fetchField("pm25"),
         fetchField("pm10"),
@@ -323,8 +327,13 @@ from(bucket: "${BUCKET}")
         fetchField("humidite")
       ]);
 
-      // On convertit TOUT de suite en Date() à partir de PM1
-      labelsRaw = pm1.labels.map(t => new Date(t));
+      const pm1 = results[0];
+      const pm25 = results[1];
+      const pm10 = results[2];
+      const temp = results[3];
+      const hum = results[4];
+
+      labelsRaw = pm1.labels.map(function (t) { return new Date(t); });
 
       series.pm1 = pm1.values;
       series.pm25 = pm25.values;
@@ -335,22 +344,19 @@ from(bucket: "${BUCKET}")
       updateCards();
       updateChart();
     } catch (err) {
-      console.error("Erreur lors du chargement des données :", err);
+      console.error("[NebuleAir] Erreur lors du chargement des données :", err);
     }
   }
 
   // ============================
-  //  EVENTS UI – PLAGES DE TEMPS
+  //  EVENTS – PLAGES DE TEMPS
   // ============================
 
-  document.querySelectorAll(".range-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".range-btn")
-        .forEach(b => b.classList.remove("active"));
-
+  const rangeButtons = document.querySelectorAll(".range-btn");
+  rangeButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
       btn.classList.add("active");
-
       currentRange = btn.dataset.range;
       customRange = null;
       loadAllData();
@@ -359,7 +365,7 @@ from(bucket: "${BUCKET}")
 
   const applyBtn = document.getElementById("apply-range");
   if (applyBtn) {
-    applyBtn.addEventListener("click", () => {
+    applyBtn.addEventListener("click", function () {
       const startInput = document.getElementById("start-date").value;
       const endInput = document.getElementById("end-date").value;
 
@@ -381,22 +387,19 @@ from(bucket: "${BUCKET}")
         stop: end.toISOString()
       };
 
-      document
-        .querySelectorAll(".range-btn")
-        .forEach(b => b.classList.remove("active"));
-
+      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
       loadAllData();
     });
   }
 
   // ============================
-  //  EVENTS UI – VISIBILITÉ COURBES
+  //  EVENTS – VISIBILITÉ COURBES
   // ============================
 
   function bindToggle(checkboxId, datasetIndex) {
     const cb = document.getElementById(checkboxId);
     if (!cb) return;
-    cb.addEventListener("change", () => {
+    cb.addEventListener("change", function () {
       const meta = mainChart.getDatasetMeta(datasetIndex);
       meta.hidden = !cb.checked;
       mainChart.update();
@@ -410,15 +413,15 @@ from(bucket: "${BUCKET}")
   bindToggle("hum-toggle", 4);
 
   // ============================
-  //  RESET PLAGE / "ZOOM"
+  //  RESET PLAGE
   // ============================
 
   const resetZoomBtn = document.getElementById("reset-zoom");
   if (resetZoomBtn) {
-    resetZoomBtn.addEventListener("click", () => {
+    resetZoomBtn.addEventListener("click", function () {
       customRange = null;
       currentRange = "1h";
-      document.querySelectorAll(".range-btn").forEach(b => {
+      rangeButtons.forEach(function (b) {
         b.classList.toggle("active", b.dataset.range === "1h");
       });
       loadAllData();
@@ -431,7 +434,7 @@ from(bucket: "${BUCKET}")
 
   const exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
-    exportBtn.addEventListener("click", () => {
+    exportBtn.addEventListener("click", function () {
       if (!labelsRaw.length) {
         alert("Pas de données à exporter.");
         return;
@@ -442,12 +445,12 @@ from(bucket: "${BUCKET}")
 
       for (let i = 0; i < len; i++) {
         const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
-        const v1 = series.pm1[i] ?? "";
-        const v2 = series.pm25[i] ?? "";
-        const v3 = series.pm10[i] ?? "";
-        const v4 = series.temperature[i] ?? "";
-        const v5 = series.humidite[i] ?? "";
-        csv += `${t},${v1},${v2},${v3},${v4},${v5}\n`;
+        const v1 = (series.pm1[i] !== undefined) ? series.pm1[i] : "";
+        const v2 = (series.pm25[i] !== undefined) ? series.pm25[i] : "";
+        const v3 = (series.pm10[i] !== undefined) ? series.pm10[i] : "";
+        const v4 = (series.temperature[i] !== undefined) ? series.temperature[i] : "";
+        const v5 = (series.humidite[i] !== undefined) ? series.humidite[i] : "";
+        csv += t + "," + v1 + "," + v2 + "," + v3 + "," + v4 + "," + v5 + "\n";
       }
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -463,7 +466,7 @@ from(bucket: "${BUCKET}")
   }
 
   // ============================
-  //  CARTE LEAFLET – LOCALISATION CAPTEUR
+  //  CARTE LEAFLET
   // ============================
 
   (function initMapNebuleAir() {
@@ -471,16 +474,15 @@ from(bucket: "${BUCKET}")
     const SENSOR_LON = 5.3948736958397765;
 
     const mapElement = document.getElementById("map");
-
     if (!mapElement) {
-      console.warn("[NebuleAir] Élément #map introuvable dans le DOM.");
+      console.warn("[NebuleAir] #map introuvable");
       return;
     }
 
     if (typeof L === "undefined") {
-      console.error("[NebuleAir] Leaflet (L) n'est pas chargé.");
+      console.error("[NebuleAir] Leaflet (L) non défini");
       mapElement.innerHTML =
-        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé. Vérifie le &lt;script&gt; Leaflet dans le HTML.</p>";
+        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé.</p>";
       return;
     }
 
@@ -493,16 +495,14 @@ from(bucket: "${BUCKET}")
     }).addTo(map);
 
     const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
-    marker.bindPopup(
-      "<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949"
-    );
+    marker.bindPopup("<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949");
   })();
 
   // ============================
   //  CHARGEMENT INITIAL
   // ============================
 
-  document.querySelectorAll(".range-btn").forEach(b => {
+  rangeButtons.forEach(function (b) {
     b.classList.toggle("active", b.dataset.range === "1h");
   });
 
