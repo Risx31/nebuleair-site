@@ -251,14 +251,15 @@ from(bucket: "${BUCKET}")
   }
 
 function updateChart() {
-  // On donne directement les objets Date() à Chart.js
-  mainChart.data.labels = labelsRaw;
+  mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm1[i] }));
+  mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm25[i] }));
+  mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm10[i] }));
+  mainChart.data.datasets[3].data = labelsRaw.map((t, i) => ({ x: t, y: series.temperature[i] }));
+  mainChart.data.datasets[4].data = labelsRaw.map((t, i) => ({ x: t, y: series.humidite[i] }));
 
-  mainChart.data.datasets[0].data = series.pm1;
-  mainChart.data.datasets[1].data = series.pm25;
-  mainChart.data.datasets[2].data = series.pm10;
-  mainChart.data.datasets[3].data = series.temperature;
-  mainChart.data.datasets[4].data = series.humidite;
+  mainChart.update();
+}
+
 
   mainChart.update();
 }
