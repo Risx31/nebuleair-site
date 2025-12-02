@@ -345,6 +345,33 @@ function buildDatasetWithGaps(values) {
       customRange = null;
       loadAllData();
     });
+      // ============================
+  //  CARTE LEAFLET – LOCALISATION CAPTEUR
+  // ============================
+
+  const SENSOR_LAT = 43.305440952514594;
+  const SENSOR_LON = 5.3948736958397765;
+
+  const mapElement = document.getElementById("map");
+  if (mapElement && typeof L !== "undefined") {
+    // Création de la carte centrée sur le capteur
+    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
+
+    // Tuiles OpenStreetMap
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Marker du capteur
+    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
+    marker.bindPopup(
+      "<b>NebuleAir – Capteur extérieur</b><br>Campus St-Jérôme"
+    );
+  }
+});
+
   });
 
   const applyBtn = document.getElementById("apply-range");
