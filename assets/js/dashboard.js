@@ -1,17 +1,12 @@
 // assets/js/dashboard.js
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ============================
-  //  CONFIG INFLUX / PROXY
-  // ============================
   const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
   const BUCKET = "Nodule Air";
 
-  // État courant
-  let currentRange = "1h";         // "1h", "6h", "24h", "7j", "30j"
-  let customRange = null;          // { start: "...Z", stop: "...Z" } si dates perso
+  let currentRange = "1h";
+  let customRange = null;
 
-  // Données brutes (timestamps Date + séries)
   let labelsRaw = [];
   let series = {
     pm1: [],
@@ -30,8 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const mainChart = new Chart(ctx, {
     type: "line",
     data: {
-      // IMPORTANT : on ne met PAS de labels ici,
-      // l’axe X "time" utilisera directement les x des points {x,y}
+      // Pas de labels ici : l’axe temps se sert des x={Date}
       datasets: [
         {
           label: "PM1",
@@ -90,15 +84,12 @@ document.addEventListener("DOMContentLoaded", () => {
       plugins: {
         legend: {
           position: "top",
-          labels: {
-            usePointStyle: true
-          }
+          labels: { usePointStyle: true }
         },
         tooltip: {
           mode: "index",
           intersect: false,
           callbacks: {
-            // Tooltip sympa avec date complète
             title: (items) => {
               if (!items.length) return "";
               const x = items[0].parsed.x;
@@ -123,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
         x: {
           type: "time",
           time: {
-            // format interne → date-fns
             tooltipFormat: "dd MMM yyyy HH:mm",
             displayFormats: {
               minute: "HH:mm",
@@ -140,7 +130,6 @@ document.addEventListener("DOMContentLoaded", () => {
   //  HELPERS INFLUX
   // ============================
 
-  // Parse CSV Influx pour 1 champ (_time / _value)
   function parseInfluxCsv(raw) {
     const lines = raw
       .split("\n")
@@ -172,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const v = parseFloat(cols[valueIndex]);
 
       if (!isNaN(v)) {
-        labels.push(t);   // string ISO, on convertira plus tard
+        labels.push(t); // string ISO
         values.push(v);
       }
     }
@@ -180,10 +169,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return { labels, values };
   }
 
-  // Clause range() selon currentRange / customRange
   function buildRangeClause() {
     if (customRange) {
-      // Dates absolues
       return `|> range(start: ${customRange.start}, stop: ${customRange.stop})`;
     }
 
@@ -197,12 +184,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Taille de fenêtre pour aggregateWindow
   function getWindowEvery() {
     if (customRange) {
       const start = new Date(customRange.start);
       const stop = new Date(customRange.stop);
-      const hours = (stop - start) / 3_600_000;
+      const hours = (stop - start) / 3600000;
       if (hours <= 6) return "1m";
       if (hours <= 24) return "5m";
       if (hours <= 24 * 7) return "30m";
@@ -220,7 +206,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Récupère 1 champ (pm1, pm25, etc.) via le proxy
   async function fetchField(field) {
     const rangeClause = buildRangeClause();
     const every = getWindowEvery();
@@ -266,7 +251,7 @@ from(bucket: "${BUCKET}")
   }
 
   function updateChart() {
-    // On construit des points { x: Date, y: valeur } pour chaque série
+    // IMPORTANT : on envoie des points {x: Date, y: valeur}
     mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm1[i] }));
     mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm25[i] }));
     mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm10[i] }));
@@ -282,7 +267,6 @@ from(bucket: "${BUCKET}")
 
   async function loadAllData() {
     try {
-      // 5 requêtes en parallèle via le proxy
       const [pm1, pm25, pm10, temp, hum] = await Promise.all([
         fetchField("pm1"),
         fetchField("pm25"),
@@ -291,7 +275,7 @@ from(bucket: "${BUCKET}")
         fetchField("humidite")
       ]);
 
-      // Timestamps = Date() (référence PM1)
+      // On convertit TOUT de suite en Date()
       labelsRaw = pm1.labels.map(t => new Date(t));
 
       series.pm1 = pm1.values;
@@ -311,19 +295,17 @@ from(bucket: "${BUCKET}")
   //  EVENTS UI
   // ============================
 
-  // Boutons de plage (1h / 6h / 24h / 7j / 30j)
   document.querySelectorAll(".range-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
 
       currentRange = btn.dataset.range;
-      customRange = null; // on oublie les dates perso
+      customRange = null;
       loadAllData();
     });
   });
 
-  // Appliquer dates perso
   const applyBtn = document.getElementById("apply-range");
   if (applyBtn) {
     applyBtn.addEventListener("click", () => {
@@ -353,7 +335,6 @@ from(bucket: "${BUCKET}")
     });
   }
 
-  // Toggles PM1 / PM2.5 / PM10 / Temp / Hum
   function bindToggle(checkboxId, datasetIndex) {
     const cb = document.getElementById(checkboxId);
     if (!cb) return;
@@ -370,7 +351,6 @@ from(bucket: "${BUCKET}")
   bindToggle("temp-toggle", 3);
   bindToggle("hum-toggle", 4);
 
-  // Réinitialiser "zoom" = revenir sur 1h
   const resetZoomBtn = document.getElementById("reset-zoom");
   if (resetZoomBtn) {
     resetZoomBtn.addEventListener("click", () => {
@@ -383,7 +363,6 @@ from(bucket: "${BUCKET}")
     });
   }
 
-  // Export CSV (à partir des données affichées)
   const exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
     exportBtn.addEventListener("click", () => {
@@ -426,5 +405,5 @@ from(bucket: "${BUCKET}")
   });
 
   loadAllData();
-  setInterval(loadAllData, 60_000); // refresh auto
+  setInterval(loadAllData, 60000);
 });
