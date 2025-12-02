@@ -7,55 +7,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentRange = "1h";
   let customRange = null;
 
+  // Toutes les dates brutes (en Date()) – on part sur PM1 comme référence
   let labelsRaw = [];
+
+  // Séries de valeurs
   let series = {
     pm1: [],
     pm25: [],
     pm10: [],
     temperature: [],
     humidite: []
-      // ============================
-  //  CARTE LEAFLET – LOCALISATION CAPTEUR
-  // ============================
-
-  (function initMapNebuleAir() {
-    const SENSOR_LAT = 43.305440952514594;
-    const SENSOR_LON = 5.3948736958397765;
-
-    const mapElement = document.getElementById("map");
-
-    // 1) Vérif basique : le div existe bien
-    if (!mapElement) {
-      console.error("[NebuleAir] Élément #map introuvable dans le DOM.");
-      return;
-    }
-
-    // 2) Vérif Leaflet : si L n'est pas défini, on affiche un message dans la carte
-    if (typeof L === "undefined") {
-      console.error("[NebuleAir] Leaflet (L) n'est pas chargé.");
-      mapElement.innerHTML =
-        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé. Vérifie la balise &lt;script src=\"https://unpkg.com/leaflet\"&gt; dans le HTML.</p>";
-      return;
-    }
-
-    // 3) Initialisation de la carte
-    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
-
-    // 4) Tuiles OpenStreetMap
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-    }).addTo(map);
-
-    // 5) Marker du capteur
-    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
-    marker.bindPopup(
-      "<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949"
-    );
-  })();
-}); // ⬅️ NE PAS OUBLIER : ça doit être la fin de ton DOMContentLoaded
-
   };
 
   // ============================
@@ -67,7 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const mainChart = new Chart(ctx, {
     type: "line",
     data: {
-      // Pas de labels ici : l’axe temps se sert des x={Date}
+      // pas de labels fixes : chaque point a son x = Date
       datasets: [
         {
           label: "PM1",
@@ -76,7 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(0, 123, 255, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true
+          fill: true,
+          spanGaps: false
         },
         {
           label: "PM2.5",
@@ -85,7 +47,8 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(255, 152, 0, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true
+          fill: true,
+          spanGaps: false
         },
         {
           label: "PM10",
@@ -94,7 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(233, 30, 99, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true
+          fill: true,
+          spanGaps: false
         },
         {
           label: "Température",
@@ -103,7 +67,8 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(0, 200, 83, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true
+          fill: true,
+          spanGaps: false
         },
         {
           label: "Humidité",
@@ -112,7 +77,8 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(38, 198, 218, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true
+          fill: true,
+          spanGaps: false
         }
       ]
     },
@@ -123,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
         mode: "index",
         intersect: false
       },
-      spanGaps: false,
+      spanGaps: false, // sécurité globale
       plugins: {
         legend: {
           position: "top",
@@ -204,8 +170,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const v = parseFloat(cols[valueIndex]);
 
       if (!isNaN(v)) {
-        labels.push(t); // string ISO
-        values.push(v);
+        labels.push(t);      // string ISO
+        values.push(v);      // nombre
       }
     }
 
@@ -292,57 +258,56 @@ from(bucket: "${BUCKET}")
     setCard("temp-value", series.temperature, 1);
     setCard("hum-value", series.humidite, 0);
   }
-// Construit un dataset avec des "trous" quand il y a un gros gap de temps
-function buildDatasetWithGaps(values) {
-  if (!labelsRaw.length) return [];
 
-  // Calcul du pas temporel "normal" (médiane des deltas)
-  const deltas = [];
-  for (let i = 1; i < labelsRaw.length; i++) {
-    deltas.push(labelsRaw[i] - labelsRaw[i - 1]);
-  }
+  // Construit un dataset avec des "trous" quand il y a un gros gap de temps
+  function buildDatasetWithGaps(values) {
+    if (!labelsRaw.length) return [];
 
-  let step = 0;
-  if (deltas.length) {
-    deltas.sort((a, b) => a - b);
-    step = deltas[Math.floor(deltas.length / 2)];
-  }
-
-  const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER; // au-delà => trou
-  const data = [];
-
-  for (let i = 0; i < labelsRaw.length; i++) {
-    const t = labelsRaw[i];
-    const v = values[i];
-
-    if (i > 0) {
-      const dt = t - labelsRaw[i - 1];
-      if (dt > threshold) {
-        // on insère un point "cassure" avant la nouvelle séquence
-        data.push({ x: t, y: null });
-      }
+    // Calcul du pas temporel "normal" (médiane des deltas)
+    const deltas = [];
+    for (let i = 1; i < labelsRaw.length; i++) {
+      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
     }
 
-    data.push({
-      x: t,
-      y: isNaN(v) ? null : v
-    });
+    let step = 0;
+    if (deltas.length) {
+      deltas.sort((a, b) => a - b);
+      step = deltas[Math.floor(deltas.length / 2)];
+    }
+
+    const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER; // au-delà => trou
+    const data = [];
+
+    for (let i = 0; i < labelsRaw.length; i++) {
+      const t = labelsRaw[i];
+      const v = values[i];
+
+      if (i > 0) {
+        const dt = t - labelsRaw[i - 1];
+        if (dt > threshold) {
+          // on insère un point "cassure" avant la nouvelle séquence
+          data.push({ x: t, y: null });
+        }
+      }
+
+      data.push({
+        x: t,
+        y: typeof v === "number" && !isNaN(v) ? v : null
+      });
+    }
+
+    return data;
   }
 
-  return data;
-}
+  function updateChart() {
+    mainChart.data.datasets[0].data = buildDatasetWithGaps(series.pm1);
+    mainChart.data.datasets[1].data = buildDatasetWithGaps(series.pm25);
+    mainChart.data.datasets[2].data = buildDatasetWithGaps(series.pm10);
+    mainChart.data.datasets[3].data = buildDatasetWithGaps(series.temperature);
+    mainChart.data.datasets[4].data = buildDatasetWithGaps(series.humidite);
 
- function updateChart() {
-  mainChart.data.datasets[0].data = buildDatasetWithGaps(series.pm1);
-  mainChart.data.datasets[1].data = buildDatasetWithGaps(series.pm25);
-  mainChart.data.datasets[2].data = buildDatasetWithGaps(series.pm10);
-  mainChart.data.datasets[3].data = buildDatasetWithGaps(series.temperature);
-  mainChart.data.datasets[4].data = buildDatasetWithGaps(series.humidite);
-
-  mainChart.update();
-}
-
-
+    mainChart.update();
+  }
 
   // ============================
   //  CHARGEMENT GLOBAL
@@ -358,7 +323,7 @@ function buildDatasetWithGaps(values) {
         fetchField("humidite")
       ]);
 
-      // On convertit TOUT de suite en Date()
+      // On convertit TOUT de suite en Date() à partir de PM1
       labelsRaw = pm1.labels.map(t => new Date(t));
 
       series.pm1 = pm1.values;
@@ -375,45 +340,21 @@ function buildDatasetWithGaps(values) {
   }
 
   // ============================
-  //  EVENTS UI
+  //  EVENTS UI – PLAGES DE TEMPS
   // ============================
 
   document.querySelectorAll(".range-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+      document
+        .querySelectorAll(".range-btn")
+        .forEach(b => b.classList.remove("active"));
+
       btn.classList.add("active");
 
       currentRange = btn.dataset.range;
       customRange = null;
       loadAllData();
     });
-      // ============================
-  //  CARTE LEAFLET – LOCALISATION CAPTEUR
-  // ============================
-
-  const SENSOR_LAT = 43.305440952514594;
-  const SENSOR_LON = 5.3948736958397765;
-
-  const mapElement = document.getElementById("map");
-  if (mapElement && typeof L !== "undefined") {
-    // Création de la carte centrée sur le capteur
-    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
-
-    // Tuiles OpenStreetMap
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-    }).addTo(map);
-
-    // Marker du capteur
-    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
-    marker.bindPopup(
-      "<b>NebuleAir – Capteur extérieur</b><br>Campus St-Jérôme"
-    );
-  }
-});
-
   });
 
   const applyBtn = document.getElementById("apply-range");
@@ -440,10 +381,17 @@ function buildDatasetWithGaps(values) {
         stop: end.toISOString()
       };
 
-      document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+      document
+        .querySelectorAll(".range-btn")
+        .forEach(b => b.classList.remove("active"));
+
       loadAllData();
     });
   }
+
+  // ============================
+  //  EVENTS UI – VISIBILITÉ COURBES
+  // ============================
 
   function bindToggle(checkboxId, datasetIndex) {
     const cb = document.getElementById(checkboxId);
@@ -461,6 +409,10 @@ function buildDatasetWithGaps(values) {
   bindToggle("temp-toggle", 3);
   bindToggle("hum-toggle", 4);
 
+  // ============================
+  //  RESET PLAGE / "ZOOM"
+  // ============================
+
   const resetZoomBtn = document.getElementById("reset-zoom");
   if (resetZoomBtn) {
     resetZoomBtn.addEventListener("click", () => {
@@ -472,6 +424,10 @@ function buildDatasetWithGaps(values) {
       loadAllData();
     });
   }
+
+  // ============================
+  //  EXPORT CSV
+  // ============================
 
   const exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
@@ -505,6 +461,42 @@ function buildDatasetWithGaps(values) {
       URL.revokeObjectURL(url);
     });
   }
+
+  // ============================
+  //  CARTE LEAFLET – LOCALISATION CAPTEUR
+  // ============================
+
+  (function initMapNebuleAir() {
+    const SENSOR_LAT = 43.305440952514594;
+    const SENSOR_LON = 5.3948736958397765;
+
+    const mapElement = document.getElementById("map");
+
+    if (!mapElement) {
+      console.warn("[NebuleAir] Élément #map introuvable dans le DOM.");
+      return;
+    }
+
+    if (typeof L === "undefined") {
+      console.error("[NebuleAir] Leaflet (L) n'est pas chargé.");
+      mapElement.innerHTML =
+        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé. Vérifie le &lt;script&gt; Leaflet dans le HTML.</p>";
+      return;
+    }
+
+    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
+    marker.bindPopup(
+      "<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949"
+    );
+  })();
 
   // ============================
   //  CHARGEMENT INITIAL
