@@ -106,12 +106,17 @@ document.addEventListener("DOMContentLoaded", () => {
             text: "Valeur"
           }
         },
-        x: {
-          title: {
-            display: true,
-            text: "Temps"
-          }
-        }
+         x: {
+    type: 'time',
+    time: {
+      tooltipFormat: "dd MMM yyyy HH:mm",
+      displayFormats: {
+        hour: "dd MMM HH'h'",
+        day: "dd MMM",
+        minute: "HH:mm"
+      }
+    }
+  }
       }
     }
   });
