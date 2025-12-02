@@ -250,20 +250,19 @@ from(bucket: "${BUCKET}")
     setCard("hum-value", series.humidite, 0);
   }
 
-  function updateChart() {
-    const labelsDisplay = labelsRaw.map(t =>
-      new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-    );
+function updateChart() {
+  // On donne directement les objets Date() à Chart.js
+  mainChart.data.labels = labelsRaw;
 
-    mainChart.data.labels = labelsDisplay;
-    mainChart.data.datasets[0].data = series.pm1;
-    mainChart.data.datasets[1].data = series.pm25;
-    mainChart.data.datasets[2].data = series.pm10;
-    mainChart.data.datasets[3].data = series.temperature;
-    mainChart.data.datasets[4].data = series.humidite
+  mainChart.data.datasets[0].data = series.pm1;
+  mainChart.data.datasets[1].data = series.pm25;
+  mainChart.data.datasets[2].data = series.pm10;
+  mainChart.data.datasets[3].data = series.temperature;
+  mainChart.data.datasets[4].data = series.humidite;
 
-    mainChart.update();
-  }
+  mainChart.update();
+}
+
 
   // ============================
   //  CHARGEMENT GLOBAL
