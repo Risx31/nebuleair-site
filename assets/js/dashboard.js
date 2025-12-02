@@ -14,6 +14,48 @@ document.addEventListener("DOMContentLoaded", () => {
     pm10: [],
     temperature: [],
     humidite: []
+      // ============================
+  //  CARTE LEAFLET – LOCALISATION CAPTEUR
+  // ============================
+
+  (function initMapNebuleAir() {
+    const SENSOR_LAT = 43.305440952514594;
+    const SENSOR_LON = 5.3948736958397765;
+
+    const mapElement = document.getElementById("map");
+
+    // 1) Vérif basique : le div existe bien
+    if (!mapElement) {
+      console.error("[NebuleAir] Élément #map introuvable dans le DOM.");
+      return;
+    }
+
+    // 2) Vérif Leaflet : si L n'est pas défini, on affiche un message dans la carte
+    if (typeof L === "undefined") {
+      console.error("[NebuleAir] Leaflet (L) n'est pas chargé.");
+      mapElement.innerHTML =
+        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé. Vérifie la balise &lt;script src=\"https://unpkg.com/leaflet\"&gt; dans le HTML.</p>";
+      return;
+    }
+
+    // 3) Initialisation de la carte
+    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
+
+    // 4) Tuiles OpenStreetMap
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // 5) Marker du capteur
+    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
+    marker.bindPopup(
+      "<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949"
+    );
+  })();
+}); // ⬅️ NE PAS OUBLIER : ça doit être la fin de ton DOMContentLoaded
+
   };
 
   // ============================
