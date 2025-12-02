@@ -250,36 +250,56 @@ from(bucket: "${BUCKET}")
     setCard("temp-value", series.temperature, 1);
     setCard("hum-value", series.humidite, 0);
   }
+// Construit un dataset avec des "trous" quand il y a un gros gap de temps
+function buildDatasetWithGaps(values) {
+  if (!labelsRaw.length) return [];
+
+  // Calcul du pas temporel "normal" (médiane des deltas)
+  const deltas = [];
+  for (let i = 1; i < labelsRaw.length; i++) {
+    deltas.push(labelsRaw[i] - labelsRaw[i - 1]);
+  }
+
+  let step = 0;
+  if (deltas.length) {
+    deltas.sort((a, b) => a - b);
+    step = deltas[Math.floor(deltas.length / 2)];
+  }
+
+  const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER; // au-delà => trou
+  const data = [];
+
+  for (let i = 0; i < labelsRaw.length; i++) {
+    const t = labelsRaw[i];
+    const v = values[i];
+
+    if (i > 0) {
+      const dt = t - labelsRaw[i - 1];
+      if (dt > threshold) {
+        // on insère un point "cassure" avant la nouvelle séquence
+        data.push({ x: t, y: null });
+      }
+    }
+
+    data.push({
+      x: t,
+      y: isNaN(v) ? null : v
+    });
+  }
+
+  return data;
+}
 
  function updateChart() {
-  // IMPORTANT: on envoie des points {x: Date, y: valeur}
-  mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({
-    x: t,
-    y: isNaN(series.pm1[i]) ? null : series.pm1[i]
-  }));
-
-  mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({
-    x: t,
-    y: isNaN(series.pm25[i]) ? null : series.pm25[i]
-  }));
-
-  mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({
-    x: t,
-    y: isNaN(series.pm10[i]) ? null : series.pm10[i]
-  }));
-
-  mainChart.data.datasets[3].data = labelsRaw.map((t, i) => ({
-    x: t,
-    y: isNaN(series.temperature[i]) ? null : series.temperature[i]
-  }));
-
-  mainChart.data.datasets[4].data = labelsRaw.map((t, i) => ({
-    x: t,
-    y: isNaN(series.humidite[i]) ? null : series.humidite[i]
-  }));
+  mainChart.data.datasets[0].data = buildDatasetWithGaps(series.pm1);
+  mainChart.data.datasets[1].data = buildDatasetWithGaps(series.pm25);
+  mainChart.data.datasets[2].data = buildDatasetWithGaps(series.pm10);
+  mainChart.data.datasets[3].data = buildDatasetWithGaps(series.temperature);
+  mainChart.data.datasets[4].data = buildDatasetWithGaps(series.humidite);
 
   mainChart.update();
 }
+
 
 
   // ============================
