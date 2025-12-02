@@ -260,7 +260,7 @@ from(bucket: "${BUCKET}")
     mainChart.data.datasets[1].data = series.pm25;
     mainChart.data.datasets[2].data = series.pm10;
     mainChart.data.datasets[3].data = series.temperature;
-    mainChart.data.datasets[4].data = series.humidite;
+    mainChart.data.datasets[4].data = series.humidite
 
     mainChart.update();
   }
@@ -280,16 +280,18 @@ from(bucket: "${BUCKET}")
         fetchField("humidite")
       ]);
 
-      // On prend les timestamps de PM1 comme référence
-      labelsRaw = pm1.labels;
-      series.pm1 = pm1.values;
-      series.pm25 = pm25.values;
-      series.pm10 = pm10.values;
-      series.temperature = temp.values;
-      series.humidite = hum.values;
+// On prend les timestamps de PM1 comme référence
+labelsRaw = pm1.labels.map(t => new Date(t));   // ✔ Conversion ici
 
-      updateCards();
-      updateChart();
+series.pm1 = pm1.values;
+series.pm25 = pm25.values;
+series.pm10 = pm10.values;
+series.temperature = temp.values;
+series.humidite = hum.values;
+
+updateCards();
+updateChart();
+
     } catch (err) {
       console.error("Erreur lors du chargement des données :", err);
     }
