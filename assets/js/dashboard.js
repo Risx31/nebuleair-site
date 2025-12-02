@@ -283,7 +283,7 @@ if (data.rssi) {
 function buildDatasetWithGaps(values) {
   if (!labelsRaw.length) return [];
 
-  // On estime le pas "normal" entre deux mesures (médiane des écarts)
+  // 1) On estime le pas "normal" entre deux mesures (médiane des écarts)
   const deltas = [];
   for (let i = 1; i < labelsRaw.length; i++) {
     deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
@@ -296,7 +296,7 @@ function buildDatasetWithGaps(values) {
   }
 
   // Si deux points sont séparés de plus de 3× le pas normal,
-  // on considère que c'est une coupure (déconnexion).
+  // on considère que c'est une déconnexion.
   const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
   const data = [];
 
@@ -309,11 +309,21 @@ function buildDatasetWithGaps(values) {
       const dt = t - prevT;
 
       if (dt > threshold) {
-        // On ajoute un point "trou" au milieu du gap pour casser la courbe
+        // ➜ on place un point "trou" AU MILIEU du gap
         const mid = new Date(prevT.getTime() + dt / 2);
         data.push({ x: mid, y: null });
       }
     }
+
+    data.push({
+      x: t,
+      y: (typeof v === "number" && !isNaN(v)) ? v : null
+    });
+  }
+
+  return data;
+}
+
 
     data.push({
       x: t,
