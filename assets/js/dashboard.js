@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentRange = "1h";         // "1h", "6h", "24h", "7j", "30j"
   let customRange = null;          // { start: "...Z", stop: "...Z" } si dates perso
 
-  // Données brutes (timestamps ISO, pas formatés)
+  // Données brutes (timestamps Date + séries)
   let labelsRaw = [];
   let series = {
     pm1: [],
@@ -30,7 +30,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const mainChart = new Chart(ctx, {
     type: "line",
     data: {
-      labels: [], // labels formatés (heure/minute)
+      // IMPORTANT : on ne met PAS de labels ici,
+      // l’axe X "time" utilisera directement les x des points {x,y}
       datasets: [
         {
           label: "PM1",
@@ -66,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(0, 200, 83, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true,
+          fill: true
         },
         {
           label: "Humidité",
@@ -75,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(38, 198, 218, 0.15)",
           borderWidth: 2,
           tension: 0.25,
-          fill: true,
+          fill: true
         }
       ]
     },
@@ -95,7 +96,20 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         tooltip: {
           mode: "index",
-          intersect: false
+          intersect: false,
+          callbacks: {
+            // Tooltip sympa avec date complète
+            title: (items) => {
+              if (!items.length) return "";
+              const x = items[0].parsed.x;
+              return new Date(x).toLocaleString("fr-FR", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit"
+              });
+            }
+          }
         }
       },
       scales: {
@@ -106,17 +120,18 @@ document.addEventListener("DOMContentLoaded", () => {
             text: "Valeur"
           }
         },
-         x: {
-    type: 'time',
-    time: {
-      tooltipFormat: "dd MMM yyyy HH:mm",
-      displayFormats: {
-        hour: "dd MMM HH'h'",
-        day: "dd MMM",
-        minute: "HH:mm"
-      }
-    }
-  }
+        x: {
+          type: "time",
+          time: {
+            // format interne → date-fns
+            tooltipFormat: "dd MMM yyyy HH:mm",
+            displayFormats: {
+              minute: "HH:mm",
+              hour: "dd MMM HH'h'",
+              day: "dd MMM"
+            }
+          }
+        }
       }
     }
   });
@@ -157,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const v = parseFloat(cols[valueIndex]);
 
       if (!isNaN(v)) {
-        labels.push(t);
+        labels.push(t);   // string ISO, on convertira plus tard
         values.push(v);
       }
     }
@@ -250,20 +265,16 @@ from(bucket: "${BUCKET}")
     setCard("hum-value", series.humidite, 0);
   }
 
-function updateChart() {
-  mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm1[i] }));
-  mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm25[i] }));
-  mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm10[i] }));
-  mainChart.data.datasets[3].data = labelsRaw.map((t, i) => ({ x: t, y: series.temperature[i] }));
-  mainChart.data.datasets[4].data = labelsRaw.map((t, i) => ({ x: t, y: series.humidite[i] }));
+  function updateChart() {
+    // On construit des points { x: Date, y: valeur } pour chaque série
+    mainChart.data.datasets[0].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm1[i] }));
+    mainChart.data.datasets[1].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm25[i] }));
+    mainChart.data.datasets[2].data = labelsRaw.map((t, i) => ({ x: t, y: series.pm10[i] }));
+    mainChart.data.datasets[3].data = labelsRaw.map((t, i) => ({ x: t, y: series.temperature[i] }));
+    mainChart.data.datasets[4].data = labelsRaw.map((t, i) => ({ x: t, y: series.humidite[i] }));
 
-  mainChart.update();
-}
-
-
-  mainChart.update();
-}
-
+    mainChart.update();
+  }
 
   // ============================
   //  CHARGEMENT GLOBAL
@@ -271,7 +282,7 @@ function updateChart() {
 
   async function loadAllData() {
     try {
-      // 5 requêtes en parallèle via le proxy (comme le dashboard fonctionnel)
+      // 5 requêtes en parallèle via le proxy
       const [pm1, pm25, pm10, temp, hum] = await Promise.all([
         fetchField("pm1"),
         fetchField("pm25"),
@@ -280,18 +291,17 @@ function updateChart() {
         fetchField("humidite")
       ]);
 
-// On prend les timestamps de PM1 comme référence
-labelsRaw = pm1.labels.map(t => new Date(t));   // ✔ Conversion ici
+      // Timestamps = Date() (référence PM1)
+      labelsRaw = pm1.labels.map(t => new Date(t));
 
-series.pm1 = pm1.values;
-series.pm25 = pm25.values;
-series.pm10 = pm10.values;
-series.temperature = temp.values;
-series.humidite = hum.values;
+      series.pm1 = pm1.values;
+      series.pm25 = pm25.values;
+      series.pm10 = pm10.values;
+      series.temperature = temp.values;
+      series.humidite = hum.values;
 
-updateCards();
-updateChart();
-
+      updateCards();
+      updateChart();
     } catch (err) {
       console.error("Erreur lors du chargement des données :", err);
     }
@@ -386,7 +396,7 @@ updateChart();
       const len = labelsRaw.length;
 
       for (let i = 0; i < len; i++) {
-        const t = labelsRaw[i] || "";
+        const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
         const v1 = series.pm1[i] ?? "";
         const v2 = series.pm25[i] ?? "";
         const v3 = series.pm10[i] ?? "";
@@ -411,12 +421,10 @@ updateChart();
   //  CHARGEMENT INITIAL
   // ============================
 
-  // On force le bouton 1h actif au départ
   document.querySelectorAll(".range-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.range === "1h");
   });
 
   loadAllData();
-  // Refresh auto toutes les 60 s (optionnel)
-  setInterval(loadAllData, 60_000);
+  setInterval(loadAllData, 60_000); // refresh auto
 });
