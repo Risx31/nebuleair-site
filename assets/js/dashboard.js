@@ -31,6 +31,20 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
+const wifiElement = document.getElementById('wifi-value');
+
+if (data.rssi) {
+    wifiElement.textContent = data.rssi;
+    
+    if (data.rssi > -60) {
+        wifiElement.style.color = "#10b981"; // Vert (Excellent)
+    } else if (data.rssi > -75) {
+        wifiElement.style.color = "#f59e0b"; // Orange (Moyen)
+    } else {
+        wifiElement.style.color = "#ef4444"; // Rouge (Mauvais)
+    }
+}
+  
   const ctx = canvas.getContext("2d");
 
   const mainChart = new Chart(ctx, {
