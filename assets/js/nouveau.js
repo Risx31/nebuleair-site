@@ -1,259 +1,214 @@
-// =============================
-//  CONFIG
-// =============================
+/******************************************************
+ * Nouveautés – NebuleAir
+ * Page de test des nouvelles fonctionnalités
+ ******************************************************/
+
+console.log("[NebuleAir] Nouveautés chargées");
 
 const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
 const BUCKET = "Nodule Air";
 
-let compareChart = null;
+// ========================= //
+//  Générique : requête Flux //
+// ========================= //
+async function influxQuery(flux) {
+    const url = `${INFLUX_URL}?bucket=${encodeURIComponent(BUCKET)}`;
 
-// =============================
-//  Helpers Influx
-// =============================
-
-// Récupère une série entre deux dates ISO (string)
-async function getSeriesRange(field, startISO, endISO) {
-    const fluxQuery = `
-    from(bucket: "${BUCKET}")
-      |> range(start: time(v: "${startISO}"), stop: time(v: "${endISO}"))
-      |> filter(fn: (r) => r._measurement == "nebuleair")
-      |> filter(fn: (r) => r._field == "${field}")
-      |> keep(columns: ["_time", "_value"])
-      |> sort(columns: ["_time"])
-  `;
-
-    const response = await fetch(INFLUX_URL, {
+    const res = await fetch(url, {
         method: "POST",
-        body: fluxQuery
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: flux })
     });
 
-    if (!response.ok) {
-        console.error("Erreur Influx:", response.status, response.statusText);
-        throw new Error("Erreur de requête Influx");
-    }
-
-    const raw = await response.text();
-    console.log("RAW SERIES", field, startISO, endISO, raw);
-
-    const lines = raw.trim().split("\n").filter(l => l.startsWith(",_result"));
-
-    return lines
-        .map(line => {
-            const cols = line.split(",");
-            return {
-                time: cols[5],
-                value: parseFloat(cols[6])
-            };
-        })
-        .filter(p => !isNaN(p.value));
+    const data = await res.json();
+    return data.results || [];
 }
 
-// Convertit la série en points {x: Date, y: value} pour Chart.js time scale
-function toChartPoints(series) {
-    return series.map(p => ({
-        x: new Date(p.time),
-        y: p.value
-    }));
-}
 
-// =============================
-//  Helpers UI
-// =============================
+// ============================================ //
+//             FONCTIONNALITÉ : COMPARAISON
+// ============================================ //
 
-function getInputValue(id) {
-    const el = document.getElementById(id);
-    return el ? el.value : "";
-}
+let compareChart = null;
 
-function showToast(msg) {
-    // Version simple : alert. Tu peux faire plus joli plus tard.
-    alert(msg);
-}
+document.getElementById("btn-compare").addEventListener("click", async () => {
+    const field = document.getElementById("compare-field").value;
 
-// =============================
-//  Création / mise à jour du graphe
-// =============================
+    const Astart = document.getElementById("startA").value;
+    const Aend = document.getElementById("endA").value;
 
-function updateCompareChart(field, series1, series2, label1, label2) {
-    const ctx = document.getElementById("compareChart");
-    if (!ctx) return;
+    const Bstart = document.getElementById("startB").value;
+    const Bend = document.getElementById("endB").value;
 
-    const data1 = toChartPoints(series1);
-    const data2 = toChartPoints(series2);
-
-    if (!data1.length && !data2.length) {
-        showToast("Aucune donnée à afficher pour ces plages.");
+    if (!Astart || !Aend || !Bstart || !Bend) {
+        alert("Toutes les dates doivent être renseignées !");
         return;
     }
 
-    const datasets = [];
+    const fluxA = `
+        from(bucket: "${BUCKET}")
+        |> range(start: ${JSON.stringify(Astart)}, stop: ${JSON.stringify(Aend)})
+        |> filter(fn: (r) => r._field == "${field}")
+    `;
 
-    if (data1.length) {
-        datasets.push({
-            label: `${label1}`,
-            data: data1,
-            borderColor: "rgba(37, 99, 235, 1)",        // bleu
-            backgroundColor: "rgba(37, 99, 235, 0.15)",
-            tension: 0.2,
-            pointRadius: 0,
-            borderWidth: 2
-        });
-    }
+    const fluxB = `
+        from(bucket: "${BUCKET}")
+        |> range(start: ${JSON.stringify(Bstart)}, stop: ${JSON.stringify(Bend)})
+        |> filter(fn: (r) => r._field == "${field}")
+    `;
 
-    if (data2.length) {
-        datasets.push({
-            label: `${label2}`,
-            data: data2,
-            borderColor: "rgba(239, 68, 68, 1)",        // rouge
-            backgroundColor: "rgba(239, 68, 68, 0.15)",
-            tension: 0.2,
-            pointRadius: 0,
-            borderWidth: 2
-        });
-    }
+    const dataA = await influxQuery(fluxA);
+    const dataB = await influxQuery(fluxB);
 
-    const yLabelMap = {
-        pm1: "Concentration (µg/m³)",
-        pm25: "Concentration (µg/m³)",
-        pm10: "Concentration (µg/m³)",
-        temperature: "Température (°C)",
-        humidite: "Humidité (%)"
-    };
+    const pointsA = dataA.map(r => ({
+        x: r._time,
+        y: r._value
+    }));
 
-    const yTitle = yLabelMap[field] || "Valeur";
+    const pointsB = dataB.map(r => ({
+        x: r._time,
+        y: r._value
+    }));
 
-    if (compareChart) {
-        compareChart.destroy();
-    }
+    if (compareChart) compareChart.destroy();
 
-    compareChart = new Chart(ctx, {
-        type: "line",
-        data: {
-            datasets
-        },
-        options: {
-            parsing: false, // on donne {x,y}
-            responsive: true,
-            interaction: {
-                mode: "nearest",
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: "top"
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => {
-                            const v = ctx.parsed.y;
-                            return `${ctx.dataset.label} : ${v.toFixed(2)}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    type: "time",
-                    time: {
-                        unit: "hour"
+    compareChart = new Chart(
+        document.getElementById("compareChart").getContext("2d"),
+        {
+            type: "line",
+            data: {
+                datasets: [
+                    {
+                        label: `Période A (${field})`,
+                        borderColor: "#007bff",
+                        data: pointsA
                     },
-                    title: {
-                        display: true,
-                        text: "Date / heure"
+                    {
+                        label: `Période B (${field})`,
+                        borderColor: "#ff2e63",
+                        data: pointsB
                     }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: yTitle
-                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: { type: "time", time: { unit: "minute" } }
                 }
             }
+        }
+    );
+});
+
+
+// ============================================ //
+//               FONCTIONNALITÉ : UPTIME
+// ============================================ //
+
+async function loadUptime() {
+    const flux = `
+        from(bucket: "${BUCKET}")
+        |> range(start: -24h)
+        |> filter(fn: (r) => r._field == "pm25")
+    `;
+
+    const raw = await influxQuery(flux);
+
+    const timestamps = raw.map(r => new Date(r._time).getTime());
+    timestamps.sort((a, b) => a - b);
+
+    const diffs = [];
+    for (let i = 1; i < timestamps.length; i++) {
+        diffs.push((timestamps[i] - timestamps[i - 1]) / 60000);
+    }
+
+    const uptimePercent = 100 - (diffs.filter(d => d > 2).length / diffs.length) * 100;
+
+    document.getElementById("uptime-value").textContent =
+        uptimePercent.toFixed(1) + " %";
+
+    // petit graphique de stabilité
+    const ctx = document.getElementById("uptimeChart").getContext("2d");
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: diffs.map((_, i) => i),
+            datasets: [{
+                label: "Intervalle entre mesures (min)",
+                data: diffs
+            }]
         }
     });
 }
 
-// =============================
-//  Logique du bouton "Comparer"
-// =============================
+loadUptime();
 
-async function handleCompareClick() {
-    const field = getInputValue("cmpField");
 
-    const r1Start = getInputValue("cmpRange1Start");
-    const r1End   = getInputValue("cmpRange1End");
-    const r2Start = getInputValue("cmpRange2Start");
-    const r2End   = getInputValue("cmpRange2End");
+// ============================================ //
+//        FONCTIONNALITÉ : ANOMALIES
+// ============================================ //
 
-    if (!field || !r1Start || !r1End || !r2Start || !r2End) {
-        showToast("Merci de remplir les deux plages de temps et de choisir une grandeur.");
-        return;
+document.getElementById("btn-scan-anomaly").addEventListener("click", async () => {
+    const flux = `
+        from(bucket: "${BUCKET}")
+        |> range(start: -6h)
+        |> filter(fn: (r) => r._measurement == "nebuleair")
+        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    `;
+
+    const arr = await influxQuery(flux);
+
+    const anomalies = [];
+    for (let row of arr) {
+        if (row.pm25 > 200 || row.temperature < -5 || row.temperature > 60) {
+            anomalies.push(row);
+        }
     }
 
-    const start1ISO = new Date(r1Start).toISOString();
-    const end1ISO   = new Date(r1End).toISOString();
-    const start2ISO = new Date(r2Start).toISOString();
-    const end2ISO   = new Date(r2End).toISOString();
+    const ul = document.getElementById("anomaly-list");
+    ul.innerHTML = "";
+    anomalies.forEach(a => {
+        const li = document.createElement("li");
+        li.textContent = `${a._time} → anomalie détectée`;
+        ul.appendChild(li);
+    });
+});
 
-    if (start1ISO >= end1ISO || start2ISO >= end2ISO) {
-        showToast("Chaque plage doit avoir une date de début strictement avant la date de fin.");
-        return;
-    }
 
-    try {
-        // Série 1 & 2 en parallèle
-        const [series1, series2] = await Promise.all([
-            getSeriesRange(field, start1ISO, end1ISO),
-            getSeriesRange(field, start2ISO, end2ISO)
-        ]);
+// ============================================ //
+//          FONCTIONNALITÉ : TENDANCES
+// ============================================ //
 
-        updateCompareChart(
-            field,
-            series1,
-            series2,
-            "Plage 1",
-            "Plage 2"
-        );
-    } catch (e) {
-        console.error(e);
-        showToast("Erreur lors du chargement des données.");
-    }
+async function loadTrends() {
+    const fields = ["pm1", "pm25", "pm10", "temperature", "humidite"];
+    const flux = `
+        from(bucket: "${BUCKET}")
+        |> range(start: -1h)
+        |> filter(fn: (r) => r._measurement == "nebuleair")
+        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    `;
+
+    const arr = await influxQuery(flux);
+
+    const last = arr[arr.length - 1];
+    const first = arr[0];
+
+    const ul = document.getElementById("trend-list");
+    ul.innerHTML = "";
+
+    fields.forEach(f => {
+        const trend = last[f] - first[f];
+
+        const li = document.createElement("li");
+        li.innerHTML = `${f} : ${
+            trend > 0
+                ? `⬆️ +${trend.toFixed(2)}`
+                : trend < 0
+                ? `⬇️ ${trend.toFixed(2)}`
+                : "➡️ stable"
+        }`;
+
+        ul.appendChild(li);
+    });
 }
 
-// =============================
-//  Init
-// =============================
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    const btn = document.getElementById("cmpBtn");
-    if (btn) {
-        btn.addEventListener("click", handleCompareClick);
-    }
-
-    // Option : préremplir automatiquement les plages (ex : aujourd’hui vs hier)
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const yesterdayStart = new Date(oneHourAgo.getTime() - 24 * 60 * 60 * 1000);
-    const yesterdayEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    function setDt(id, d) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        // format YYYY-MM-DDTHH:MM pour datetime-local
-        const pad = (n) => String(n).padStart(2, "0");
-        const yyyy = d.getFullYear();
-        const mm = pad(d.getMonth() + 1);
-        const dd = pad(d.getDate());
-        const hh = pad(d.getHours());
-        const mi = pad(d.getMinutes());
-        el.value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-    }
-
-    // Par défaut : plage 1 = dernière heure, plage 2 = même heure la veille
-    setDt("cmpRange1Start", oneHourAgo);
-    setDt("cmpRange1End", now);
-    setDt("cmpRange2Start", yesterdayStart);
-    setDt("cmpRange2End", yesterdayEnd);
-});
+loadTrends();
