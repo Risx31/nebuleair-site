@@ -1,151 +1,91 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<script src="assets/js/nouveau.js" defer></script>
-
     <meta charset="UTF-8">
-    <title>NebuleAir – Nouveautés (test)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouveautés – NebuleAir</title>
+
     <link rel="stylesheet" href="assets/css/style.css">
-    <script src="assets/js/common.js" defer></script>
-    <script src="assets/js/nouveau.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="light">
-<header class="topbar">
-    <button class="back-btn" onclick="window.history.back()">← Retour</button>
-    <h1 class="page-title">Nouveautés (test)</h1>
-    <div class="topbar-right">
-        <button id="themeToggle" class="theme-btn">🌙</button>
-    </div>
-</header>
 
-<main class="status-container">
+<body>
+    <header>
+        <h1>Nouveautés (Version Test)</h1>
+        <nav>
+            <a href="index.html">Dashboard</a>
+            <a href="nouveautes.html" class="active">Nouveautés</a>
+        </nav>
+    </header>
 
-    <!-- COMPARAISON -->
-<section class="status-section">
-    <h2>Comparaison graphique</h2>
-    <p class="status-section-sub">
-        Choisis une grandeur et deux plages de temps pour comparer les courbes.
-    </p>
+    <main class="container">
 
-    <div class="compare-controls">
-        <div class="compare-row">
-            <label for="cmpField">Grandeur :</label>
-            <select id="cmpField">
-                <option value="pm1">PM1 (µg/m³)</option>
-                <option value="pm25" selected>PM2.5 (µg/m³)</option>
-                <option value="pm10">PM10 (µg/m³)</option>
-                <option value="temperature">Température (°C)</option>
-                <option value="humidite">Humidité (%)</option>
-            </select>
-        </div>
+        <!-- ======================== -->
+        <!--  SECTION : COMPARAISON   -->
+        <!-- ======================== -->
+        <section class="card">
+            <h2>Comparaison de périodes</h2>
 
-        <div class="compare-row">
-            <span class="compare-label">Plage 1 :</span>
-            <input type="datetime-local" id="cmpRange1Start">
-            <span>→</span>
-            <input type="datetime-local" id="cmpRange1End">
-        </div>
-
-        <div class="compare-row">
-            <span class="compare-label">Plage 2 :</span>
-            <input type="datetime-local" id="cmpRange2Start">
-            <span>→</span>
-            <input type="datetime-local" id="cmpRange2End">
-        </div>
-
-        <button id="cmpBtn" class="primary-btn">
-            Comparer
-        </button>
-    </div>
-
-    <div class="chart-card">
-        <canvas id="compareChart" height="120"></canvas>
-    </div>
-</section>
-
-    <!-- HISTORIQUE UPTIME -->
-    <section class="status-section">
-        <h2>Historique d'uptime (24&nbsp;h)</h2>
-        <p class="status-section-sub">
-            Estimation de la disponibilité des mesures (basée sur PM2.5).
-        </p>
-        <div class="status-grid">
-            <div class="status-card">
-                <div class="status-label">Disponibilité sur 24&nbsp;h</div>
-                <div id="uptimePercent" class="status-value">--</div>
-                <div id="uptimeDetail" class="status-sub">--</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- TENDANCES -->
-    <section class="status-section">
-        <h2>Tendances sur 1&nbsp;h</h2>
-        <p class="status-section-sub">
-            Comparaison de la première et de la dernière demi-heure pour voir si chaque grandeur est en hausse, en baisse ou stable.
-        </p>
-        <div class="status-grid trend-grid">
-            <div class="status-card">
-                <div class="status-label">PM1</div>
-                <div class="trend-main">
-                    <span id="trendPm1Value" class="status-value small">--</span>
-                    <span id="trendPm1Arrow" class="trend-arrow">→</span>
-                </div>
-                <div id="trendPm1Text" class="status-sub">--</div>
+            <div class="row">
+                <label>Variable :</label>
+                <select id="compare-field">
+                    <option value="pm1">PM1</option>
+                    <option value="pm25" selected>PM2.5</option>
+                    <option value="pm10">PM10</option>
+                    <option value="temperature">Température</option>
+                    <option value="humidite">Humidité</option>
+                </select>
             </div>
 
-            <div class="status-card">
-                <div class="status-label">PM2.5</div>
-                <div class="trend-main">
-                    <span id="trendPm25Value" class="status-value small">--</span>
-                    <span id="trendPm25Arrow" class="trend-arrow">→</span>
-                </div>
-                <div id="trendPm25Text" class="status-sub">--</div>
+            <div class="row">
+                <label>Période A :</label>
+                <input type="datetime-local" id="startA">
+                <input type="datetime-local" id="endA">
             </div>
 
-            <div class="status-card">
-                <div class="status-label">PM10</div>
-                <div class="trend-main">
-                    <span id="trendPm10Value" class="status-value small">--</span>
-                    <span id="trendPm10Arrow" class="trend-arrow">→</span>
-                </div>
-                <div id="trendPm10Text" class="status-sub">--</div>
+            <div class="row">
+                <label>Période B :</label>
+                <input type="datetime-local" id="startB">
+                <input type="datetime-local" id="endB">
             </div>
 
-            <div class="status-card">
-                <div class="status-label">Température</div>
-                <div class="trend-main">
-                    <span id="trendTempValue" class="status-value small">--</span>
-                    <span id="trendTempArrow" class="trend-arrow">→</span>
-                </div>
-                <div id="trendTempText" class="status-sub">--</div>
-            </div>
+            <button id="btn-compare">Comparer</button>
 
-            <div class="status-card">
-                <div class="status-label">Humidité</div>
-                <div class="trend-main">
-                    <span id="trendHumValue" class="status-value small">--</span>
-                    <span id="trendHumArrow" class="trend-arrow">→</span>
-                </div>
-                <div id="trendHumText" class="status-sub">--</div>
-            </div>
-        </div>
-    </section>
+            <canvas id="compareChart"></canvas>
+        </section>
 
-    <!-- ANOMALIES -->
-    <section class="status-section">
-        <h2>Détection d'anomalies (bêta)</h2>
-        <p class="status-section-sub">
-            Règles simples pour repérer une perte de données ou des valeurs atypiques.
-        </p>
-        <ul id="anomalyList" class="anomaly-list">
-            <li>Chargement…</li>
-        </ul>
-    </section>
 
-</main>
+        <!-- ======================== -->
+        <!--  SECTION : UPTIME        -->
+        <!-- ======================== -->
+        <section class="card">
+            <h2>Uptime du capteur</h2>
+            <p id="uptime-value">Chargement…</p>
+            <canvas id="uptimeChart"></canvas>
+        </section>
 
+
+        <!-- =============================== -->
+        <!--  SECTION : DÉTECTION ANOMALIES  -->
+        <!-- =============================== -->
+        <section class="card">
+            <h2>Détection d'anomalies</h2>
+            <button id="btn-scan-anomaly">Analyser</button>
+            <ul id="anomaly-list"></ul>
+        </section>
+
+
+        <!-- ======================== -->
+        <!--  SECTION : TENDANCES     -->
+        <!-- ======================== -->
+        <section class="card">
+            <h2>Tendances</h2>
+            <p>Évolution des valeurs sur la dernière heure.</p>
+            <ul id="trend-list"></ul>
+        </section>
+
+    </main>
+
+    <script src="assets/js/nouveautes.js"></script>
 </body>
 </html>
