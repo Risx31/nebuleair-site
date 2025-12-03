@@ -50,5 +50,8 @@ Ce dépôt regroupe le code et la documentation du système **Sens'Air** (air ex
 - **Base de données** : InfluxDB 
 - **Dashboard / UI** : site web (Chart.js, etc.), (https://risx31.github.io/nebuleair-site/dashboard.html)
 
+- ![Léonard aka la pomme malicieuse](\Users\Etu\Downloads\pomme_mechante.png)
+
+
 
 
