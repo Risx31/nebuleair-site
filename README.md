@@ -52,4 +52,4 @@ Ce dépôt regroupe le code et la documentation du système **Sens'Air** (air ex
 
 
 ![image](image/pomme_mechante.png)
-![image](image/Capture d’écran 2025-12-03 160804.png)
+![image](image/Bruno.png)
