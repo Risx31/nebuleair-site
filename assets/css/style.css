@@ -382,3 +382,10 @@ input:checked + .slider:before {
   background: rgba(148, 163, 184, 0.25);
 }
 
+#snakeCanvas {
+  display: block;
+  margin: 0.5rem auto 0.75rem;
+  background: #020617;
+  border-radius: 0.75rem;
+}
+
