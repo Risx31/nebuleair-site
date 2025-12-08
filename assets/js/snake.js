@@ -1,5 +1,5 @@
 // assets/js/snake.js
-// NebuleAir Snake – classements, vitesses, bonus & emojis
+// NebuleAir Snake – classements, vitesses, bonus, emojis
 const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
@@ -29,7 +29,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   let snake = [];
   let snakeDir = { x: 1, y: 0 };
   let nextDir = { x: 1, y: 0 };
-  let running = false;
+  let running = false;      // true = la boucle tourne
   let score = 0;
 
   // Pommes & bonus
@@ -64,7 +64,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     slim: "✂️"      // Minceur express
   };
 
-  // Classements (localStorage)
+  // Classements (localStorage uniquement pour l'instant)
   let leaderboards = {
     lent: [],
     normal: [],
@@ -162,8 +162,6 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
 
     const trimmed = pseudo.trim();
-
-    // Si le joueur laisse vide mais clique sur OK → on met "Anonyme"
     const name = trimmed === "" ? "Anonyme" : trimmed;
 
     addScore(currentMode, name, score);
@@ -222,12 +220,12 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     // Appelé après chaque pomme mangée.
     // Probabilités approx :
     // 1% pomme dorée, 2% turbo, 3% double, 4% jackpot, 5% slim.
-    // Soit 1 + 2 + 3 + 4 + 5 = 15% au total max.
+    // Soit ~15% max.
 
     const r = Math.random() * 100;
 
     // Pomme dorée – 1%
-    if (r < 2) {
+    if (r < 1) {
       const alreadyGolden = apples.some(a => a.type === "golden");
       if (!alreadyGolden) {
         spawnApple("golden");
@@ -251,7 +249,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
 
     // Jackpot – 4% (6–10)
-    if (r < 1) {
+    if (r < 10) {
       spawnBonus("jackpot");
       return;
     }
@@ -271,7 +269,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   function cleanExpiredApples() {
     if (!apples.length) return;
     const now = Date.now();
-    // Seules les golden ont expiresAt, les normales restent
+    // seules les golden ont expiresAt, les normales restent
     apples = apples.filter(a => !a.expiresAt || a.expiresAt > now);
   }
 
@@ -382,7 +380,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
     score = 0;
     updateScoreLabel();
-    running = true;
+    running = false;   // ⚠️ la partie ne démarre plus automatiquement
   }
 
   function handleAppleCollisions(head) {
@@ -621,6 +619,13 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function setSpeedMode(mode) {
     if (!SPEEDS[mode]) return;
+
+    // ❌ Pas de changement de mode si une partie est en cours
+    if (running) {
+      console.log("[Snake] Changement de vitesse ignoré (partie en cours)");
+      return;
+    }
+
     currentMode = mode;
 
     // Mettre à jour l'affichage de la vitesse si l'élément existe
@@ -635,25 +640,15 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       label.textContent = txt;
     }
 
-    if (running) {
-      restartGameInterval();
-    }
-
+    // on ne relance pas l'interval ici car la partie ne tourne pas encore
     renderScoreboards();
   }
-
-  // Raccourcis clavier : 1 = lent, 2 = normal, 3 = rapide
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "1") setSpeedMode("lent");
-    if (e.key === "2") setSpeedMode("normal");
-    if (e.key === "3") setSpeedMode("rapide");
-  });
 
   // ==========================
   //   INIT
   // ==========================
 
-  function init(canvasId = "snakeCanvas") {
+  function init(canvasId = "snake-canvas") {
     canvas = document.getElementById(canvasId);
     if (!canvas) {
       console.warn("[Snake] Canvas introuvable, id =", canvasId);
@@ -671,22 +666,80 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     renderScoreboards();
     setSpeedMode(currentMode);
     resetGame();
-    restartGameInterval();
+
+    // Bouton "Succès"
+    const achBtn = document.getElementById("snake-achievements-btn");
+    if (achBtn && !achBtn._nebuleBound) {
+      achBtn._nebuleBound = true;
+      achBtn.addEventListener("click", () => {
+        window.location.href = "succes.html";
+      });
+    }
   }
 
-  // Contrôle de la direction avec ZQSD / flèches
+  // ==========================
+  //   CONTROLES CLAVIER
+  // ==========================
+
   document.addEventListener("keydown", (e) => {
+    const key = e.key;
+
+    // On ne s'occupe des touches que si le Snake est visible
+    const container = document.getElementById("snake-container");
+    const snakeVisible =
+      container && !container.classList.contains("snake-hidden");
+    if (!snakeVisible) return;
+
+    // --- Changements de vitesse : uniquement AVANT de lancer la partie ---
+    if (key === "1" || key === "2" || key === "3") {
+      if (running) return; // pas de changement en cours de partie
+
+      if (key === "1") setSpeedMode("lent");
+      if (key === "2") setSpeedMode("normal");
+      if (key === "3") setSpeedMode("rapide");
+      return;
+    }
+
+    // --- Déplacements (ZQSD / flèches) ---
+    const isDirKey =
+      key === "ArrowUp" ||
+      key === "ArrowDown" ||
+      key === "ArrowLeft" ||
+      key === "ArrowRight" ||
+      key === "z" ||
+      key === "q" ||
+      key === "s" ||
+      key === "d";
+
+    if (!isDirKey) return;
+
+    // Empêche le scroll de la page avec les flèches
+    if (
+      key === "ArrowUp" ||
+      key === "ArrowDown" ||
+      key === "ArrowLeft" ||
+      key === "ArrowRight"
+    ) {
+      e.preventDefault();
+    }
+
+    // Lancer la partie au premier déplacement
+    if (!running) {
+      running = true;
+      restartGameInterval();
+    }
+
     // On évite de tourner à 180° brutalement
-    if (e.key === "ArrowUp" || e.key === "z") {
+    if (key === "ArrowUp" || key === "z") {
       if (snakeDir.y === 1) return;
       nextDir = { x: 0, y: -1 };
-    } else if (e.key === "ArrowDown" || e.key === "s") {
+    } else if (key === "ArrowDown" || key === "s") {
       if (snakeDir.y === -1) return;
       nextDir = { x: 0, y: 1 };
-    } else if (e.key === "ArrowLeft" || e.key === "q") {
+    } else if (key === "ArrowLeft" || key === "q") {
       if (snakeDir.x === 1) return;
       nextDir = { x: -1, y: 0 };
-    } else if (e.key === "ArrowRight" || e.key === "d") {
+    } else if (key === "ArrowRight" || key === "d") {
       if (snakeDir.x === -1) return;
       nextDir = { x: 1, y: 0 };
     }
@@ -703,7 +756,5 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
   };
 
-  // Surtout pas d'auto-init ici :
-  // c'est le dashboard qui appelle NebuleAirSnake.init("snakeCanvas")
-  // quand on tape "snake".
+  // Pas d'auto-init : c'est dashboard.js qui fait NebuleAirSnake.init("snake-canvas")
 })();
