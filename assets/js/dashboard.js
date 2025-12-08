@@ -523,15 +523,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 // ============================
-//  EASTER EGG : SNAKE
-//  Déclenché en tapant "nebuleair" au clavier
+//  EASTER EGG : SNAKE (trigger "snake")
 // ============================
 
-document.addEventListener("DOMContentLoaded", () => {
-  initSnakeEasterEgg();
-});
-
-function initSnakeEasterEgg() {
+(function initSnakeEasterEgg() {
   const container = document.getElementById("snake-container");
   const canvas = document.getElementById("snake-canvas");
   const closeBtn = document.getElementById("snake-close");
@@ -555,7 +550,7 @@ function initSnakeEasterEgg() {
   let loopId = null;
   let score = 0;
 
-  // ---------- Gestion affichage overlay ----------
+  // ---------- Affichage overlay ----------
   function showSnake() {
     container.classList.remove("snake-hidden");
     resetGame();
@@ -568,19 +563,18 @@ function initSnakeEasterEgg() {
   }
 
   closeBtn.addEventListener("click", hideSnake);
-
   container.addEventListener("click", (e) => {
     if (e.target === container) hideSnake();
   });
 
-  // ---------- Secret "nebuleair" ----------
+  // ---------- Secret "snake" ----------
   const secret = "snake";
   let buffer = "";
 
   window.addEventListener("keydown", (e) => {
     const key = e.key.toLowerCase();
 
-    // Gestion déplacement si le jeu est visible
+    // Si l'overlay est ouvert : on gère les flèches
     if (!container.classList.contains("snake-hidden")) {
       if (key === "arrowup" && direction.y !== 1) {
         nextDirection = { x: 0, y: -1 };
@@ -594,7 +588,7 @@ function initSnakeEasterEgg() {
       return;
     }
 
-    // Si le jeu est caché, on écoute juste le mot secret
+    // Si fermé : on écoute juste le mot secret
     if (!/[a-z]/.test(key)) return;
 
     buffer += key;
@@ -670,7 +664,7 @@ function initSnakeEasterEgg() {
 
     snake.unshift(newHead);
 
-    // Mange nourriture ?
+    // Mange la pomme
     if (food && newHead.x === food.x && newHead.y === food.y) {
       score += 10;
       scoreSpan.textContent = score.toString();
@@ -685,7 +679,6 @@ function initSnakeEasterEgg() {
   function gameOver() {
     stopLoop();
     draw(true);
-    // Petit délai avant reset pour laisser voir le crash
     setTimeout(() => {
       resetGame();
       startLoop();
@@ -693,13 +686,11 @@ function initSnakeEasterEgg() {
   }
 
   function draw(isGameOver = false) {
-    // Fond
     ctx.fillStyle = "#020617";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Food
     if (food) {
-      ctx.fillStyle = "#f97316"; // orange
+      ctx.fillStyle = "#f97316";
       ctx.fillRect(
         food.x * tileSize + 2,
         food.y * tileSize + 2,
@@ -708,12 +699,11 @@ function initSnakeEasterEgg() {
       );
     }
 
-    // Snake
     snake.forEach((seg, index) => {
       if (index === 0) {
-        ctx.fillStyle = isGameOver ? "#ef4444" : "#22c55e"; // tête
+        ctx.fillStyle = isGameOver ? "#ef4444" : "#22c55e";
       } else {
-        ctx.fillStyle = isGameOver ? "#b91c1c" : "#4ade80"; // corps
+        ctx.fillStyle = isGameOver ? "#b91c1c" : "#4ade80";
       }
       ctx.fillRect(
         seg.x * tileSize + 2,
@@ -722,6 +712,9 @@ function initSnakeEasterEgg() {
         tileSize - 4
       );
     });
+  }
+})();
+
   }
 }
 
