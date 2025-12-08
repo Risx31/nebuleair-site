@@ -21,7 +21,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   let gameInterval = null;
 
   // Canvas & dessin
-  let canvas, ctx;
+  let canvas = null;
+  let ctx = null;
   let tileCount = 20;
   let tileSize = 20;
 
@@ -37,8 +38,6 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   let apples = [];
   // type de bonus : "turbo" | "double" | "jackpot" | "slim"
   let bonusItems = [];
-
-  const BONUS_TYPES = ["turbo", "double", "jackpot", "slim"];
 
   // Effets actifs
   const activeEffects = {
@@ -200,8 +199,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     apples.push({
       x: pos.x,
       y: pos.y,
-      type,
-      expiresAt
+      type: type,
+      expiresAt: expiresAt
     });
   }
 
@@ -211,7 +210,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     bonusItems.push({
       x: pos.x,
       y: pos.y,
-      type,
+      type: type,
       expiresAt: Date.now() + lifetimeMs
     });
   }
@@ -304,7 +303,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     activeEffects.turbo = true;
     if (effectTimeouts.turbo) clearTimeout(effectTimeouts.turbo);
 
-    effectTimeouts.turbo = setTimeout(() => {
+    effectTimeouts.turbo = setTimeout(function () {
       activeEffects.turbo = false;
       restartGameInterval();
     }, 5000); // 5 s
@@ -316,7 +315,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     activeEffects.doubleScore = true;
     if (effectTimeouts.doubleScore) clearTimeout(effectTimeouts.doubleScore);
 
-    effectTimeouts.doubleScore = setTimeout(() => {
+    effectTimeouts.doubleScore = setTimeout(function () {
       activeEffects.doubleScore = false;
     }, 10000); // 10 s
   }
@@ -380,7 +379,11 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
     score = 0;
     updateScoreLabel();
-    running = false;   // ⚠️ la partie ne démarre plus automatiquement
+    running = false;   // la partie ne démarre plus automatiquement
+
+    if (ctx) {
+      draw(); // on affiche un état propre
+    }
   }
 
   function handleAppleCollisions(head) {
@@ -454,8 +457,15 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   function gameLoop() {
     if (!running) return;
 
+    // sécurité : si pour une raison quelconque le snake est vide, on reset
+    if (!snake || snake.length === 0) {
+      console.warn("[Snake] Snake vide détecté, reset automatique.");
+      resetGame();
+      return;
+    }
+
     // Appliquer la direction tapée
-    snakeDir = { ...nextDir };
+    snakeDir = { x: nextDir.x, y: nextDir.y };
 
     // Nouvelle position de la tête
     const head = snake[0];
@@ -471,12 +481,14 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       newHead.y < 0 ||
       newHead.y >= tileCount
     ) {
-      return gameOver();
+      gameOver();
+      return;
     }
 
     // Collision avec soi-même
-    if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
-      return gameOver();
+    if (snake.some(function (seg) { return seg.x === newHead.x && seg.y === newHead.y; })) {
+      gameOver();
+      return;
     }
 
     // Ajouter tête
@@ -502,8 +514,10 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function gameOver() {
     running = false;
-    clearInterval(gameInterval);
-    gameInterval = null;
+    if (gameInterval) {
+      clearInterval(gameInterval);
+      gameInterval = null;
+    }
 
     clearAllEffects();
 
@@ -538,7 +552,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawSnake() {
-    snake.forEach((seg, index) => {
+    snake.forEach(function (seg, index) {
       ctx.fillStyle = index === 0 ? "#00ff7f" : "#1e90ff";
       ctx.fillRect(
         seg.x * tileSize + 1,
@@ -550,12 +564,12 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawApples() {
-    apples.forEach(a => {
+    apples.forEach(function (a) {
       const emoji = APPLE_EMOJIS[a.type] || APPLE_EMOJIS.normal;
       const fontSize = Math.floor(tileSize * 0.9);
 
       ctx.save();
-      ctx.font = `${fontSize}px system-ui`;
+      ctx.font = fontSize + "px system-ui";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
@@ -568,12 +582,12 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawBonuses() {
-    bonusItems.forEach(b => {
+    bonusItems.forEach(function (b) {
       const emoji = BONUS_EMOJIS[b.type] || "❓";
       const fontSize = Math.floor(tileSize * 0.9);
 
       ctx.save();
-      ctx.font = `${fontSize}px system-ui`;
+      ctx.font = fontSize + "px system-ui";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
@@ -607,7 +621,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     ctx.fillStyle = "#ffffff";
     ctx.font = "16px sans-serif";
     ctx.fillText(
-      `Score : ${score}`,
+      "Score : " + score,
       canvas.width / 2,
       canvas.height / 2 + 20
     );
@@ -640,7 +654,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       label.textContent = txt;
     }
 
-    // on ne relance pas l'interval ici car la partie ne tourne pas encore
+    // pas de restart ici : la partie démarrera au premier mouvement
     renderScoreboards();
   }
 
@@ -648,15 +662,29 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   //   INIT
   // ==========================
 
-  function init(canvasId = "snake-canvas") {
-    canvas = document.getElementById(canvasId);
+  function init(canvasId) {
+    // On accepte plusieurs IDs possibles pour être tolérant :
+    const candidates = [];
+    if (canvasId) candidates.push(canvasId);
+    candidates.push("snake-canvas", "snakeCanvas");
+
+    canvas = null;
+    for (let i = 0; i < candidates.length; i++) {
+      const id = candidates[i];
+      const c = document.getElementById(id);
+      if (c) {
+        canvas = c;
+        break;
+      }
+    }
+
     if (!canvas) {
-      console.warn("[Snake] Canvas introuvable, id =", canvasId);
+      console.warn("[Snake] Canvas introuvable, ids testés =", candidates.join(", "));
       return;
     }
+
     ctx = canvas.getContext("2d");
 
-    // si le canvas n'a pas de taille définie, on en met une
     if (!canvas.width) canvas.width = tileCount * tileSize;
     if (!canvas.height) canvas.height = tileCount * tileSize;
 
@@ -671,7 +699,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     const achBtn = document.getElementById("snake-achievements-btn");
     if (achBtn && !achBtn._nebuleBound) {
       achBtn._nebuleBound = true;
-      achBtn.addEventListener("click", () => {
+      achBtn.addEventListener("click", function () {
         window.location.href = "succes.html";
       });
     }
@@ -681,7 +709,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   //   CONTROLES CLAVIER
   // ==========================
 
-  document.addEventListener("keydown", (e) => {
+  document.addEventListener("keydown", function (e) {
     const key = e.key;
 
     // On ne s'occupe des touches que si le Snake est visible
@@ -747,7 +775,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   // Expose quelques fonctions globales (pratique pour dashboard.js)
   window.NebuleAirSnake = {
-    init,
+    init: init,
     setMode: setSpeedMode,
     resetScores: function () {
       leaderboards = { lent: [], normal: [], rapide: [] };
@@ -756,5 +784,5 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
   };
 
-  // Pas d'auto-init : c'est dashboard.js qui fait NebuleAirSnake.init("snake-canvas")
+  // Pas d'auto-init : c'est dashboard.js qui appelle NebuleAirSnake.init(...)
 })();
