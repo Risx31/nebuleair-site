@@ -9,15 +9,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
   const BUCKET = "Nodule Air";
 
-  // Plage actuelle (boutons rapides)
-  let currentRange = "1h"; // "1h", "6h", "24h", "7j", "30j"
-  // Plage custom (dates)
-  let customRange = null;
+  let currentRange = "1h";    // "1h", "6h", "24h", "7j", "30j", "custom"
+  let customRange = null;     // { start: ISO, end: ISO }
 
-  // Labels (objets Date)
-  let labelsRaw = [];
-
-  // Séries de valeurs
+  let labelsRaw = [];         // tableaux de Date
   let series = {
     pm1: [],
     pm25: [],
@@ -50,10 +45,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const tempToggle = document.getElementById("temp-toggle");
   const humToggle  = document.getElementById("hum-toggle");
 
-  const rangeButtons = document.querySelectorAll(".range-btn");
+  const rangeButtons   = document.querySelectorAll(".range-btn");
   const startDateInput = document.getElementById("start-date");
-  const endDateInput = document.getElementById("end-date");
-  const applyRangeBtn = document.getElementById("apply-range");
+  const endDateInput   = document.getElementById("end-date");
+  const applyRangeBtn  = document.getElementById("apply-range");
 
   const resetZoomBtn = document.getElementById("reset-zoom");
   const exportCsvBtn = document.getElementById("export-csv");
@@ -65,7 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const mainChart = new Chart(ctx, {
     type: "line",
     data: {
-      // l’axe X est en temps, donc pas de labels ici
       datasets: [
         {
           label: "PM1",
@@ -74,8 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
           borderColor: "#2563eb",
           backgroundColor: "rgba(37,99,235,0.1)",
           tension: 0.2,
-          borderWidth: 2,
-          hidden: false
+          borderWidth: 2
         },
         {
           label: "PM2.5",
@@ -84,8 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
           borderColor: "#16a34a",
           backgroundColor: "rgba(22,163,74,0.1)",
           tension: 0.2,
-          borderWidth: 2,
-          hidden: false
+          borderWidth: 2
         },
         {
           label: "PM10",
@@ -94,8 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
           borderColor: "#f97316",
           backgroundColor: "rgba(249,115,22,0.1)",
           tension: 0.2,
-          borderWidth: 2,
-          hidden: false
+          borderWidth: 2
         },
         {
           label: "Température",
@@ -105,8 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(236,72,153,0.08)",
           tension: 0.2,
           borderWidth: 2,
-          yAxisID: "yTempHum",
-          hidden: false
+          yAxisID: "yTempHum"
         },
         {
           label: "Humidité",
@@ -116,8 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
           backgroundColor: "rgba(139,92,246,0.08)",
           tension: 0.2,
           borderWidth: 2,
-          yAxisID: "yTempHum",
-          hidden: false
+          yAxisID: "yTempHum"
         }
       ]
     },
@@ -173,16 +162,14 @@ document.addEventListener("DOMContentLoaded", () => {
       plugins: {
         legend: {
           display: true,
-          labels: {
-            usePointStyle: true
-          }
+          labels: { usePointStyle: true }
         },
         tooltip: {
           callbacks: {
             label: (ctx) => {
-              const value = ctx.parsed.y;
-              if (value == null) return ctx.dataset.label + " : --";
-              return ctx.dataset.label + " : " + value.toFixed(2);
+              const v = ctx.parsed.y;
+              if (v == null) return ctx.dataset.label + " : --";
+              return ctx.dataset.label + " : " + v.toFixed(2);
             }
           }
         }
@@ -193,12 +180,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateChartDatasets() {
     const labels = labelsRaw;
 
-    function buildData(arr) {
-      return labels.map((t, idx) => {
-        const v = arr[idx];
+    const buildData = (arr) =>
+      labels.map((t, i) => {
+        const v = arr[i];
         return v == null ? { x: t, y: null } : { x: t, y: v };
       });
-    }
 
     mainChart.data.datasets[0].data = buildData(series.pm1);
     mainChart.data.datasets[1].data = buildData(series.pm25);
@@ -213,25 +199,22 @@ document.addEventListener("DOMContentLoaded", () => {
   //  FETCH DONNÉES INFLUX
   // ============================
 
+  // *** IMPORTANT : payload simple pour coller au flow Node-RED ***
   function makeRequestPayload() {
-    const payload = {
-      bucket: BUCKET,
-      // pour Node-RED : soit "relative" + window, soit "absolute" + dates
-      range: {
-        mode: "relative",
-        window: currentRange
-      }
-    };
-
-    if (customRange && customRange.start && customRange.end) {
-      payload.range = {
-        mode: "absolute",
+    if (currentRange === "custom" && customRange && customRange.start && customRange.end) {
+      return {
+        bucket: BUCKET,
+        range: "custom",
         start: customRange.start,
         end: customRange.end
       };
     }
 
-    return payload;
+    // Plage relative : "1h", "6h", "24h", "7j", "30j"
+    return {
+      bucket: BUCKET,
+      range: currentRange
+    };
   }
 
   function safeNumber(v) {
@@ -240,8 +223,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function parseInfluxResponse(json) {
-    // Cette fonction essaye plusieurs formats possibles pour être robuste.
-
     console.log("[NebuleAir] Réponse Influx brute :", json);
 
     labelsRaw = [];
@@ -252,21 +233,25 @@ document.addEventListener("DOMContentLoaded", () => {
     series.humidite = [];
     series.wifi = [];
 
-    // ---- Format 1 : { labels:[], pm1:[], ... } ----
+    // Si c'est clairement une erreur, on sort
+    if (json && json.code && json.message) {
+      console.warn("[NebuleAir] Erreur renvoyée par le proxy :", json.code, json.message);
+      return;
+    }
+
+    // Format 1 : { labels:[], pm1:[], ... }
     if (Array.isArray(json.labels)) {
-      labelsRaw = json.labels.map(t => new Date(t));
+      labelsRaw = json.labels.map((t) => new Date(t));
       ["pm1", "pm25", "pm10", "temperature", "humidite", "wifi"].forEach((k) => {
-        if (Array.isArray(json[k])) {
-          series[k] = json[k].map(safeNumber);
-        }
+        if (Array.isArray(json[k])) series[k] = json[k].map(safeNumber);
       });
       return;
     }
 
-    // ---- Format 2 : { rows:[{time, pm1,...}, ...] } ----
+    // Format 2 : { rows:[{time, pm1,...}, ...] }
     if (Array.isArray(json.rows)) {
-      labelsRaw = json.rows.map(r => new Date(r.time));
-      json.rows.forEach(r => {
+      labelsRaw = json.rows.map((r) => new Date(r.time));
+      json.rows.forEach((r) => {
         series.pm1.push(safeNumber(r.pm1));
         series.pm25.push(safeNumber(r.pm25));
         series.pm10.push(safeNumber(r.pm10));
@@ -277,10 +262,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ---- Format 3 : tableau direct de points ----
+    // Format 3 : tableau direct [{time, pm1,...}]
     if (Array.isArray(json)) {
-      labelsRaw = json.map(r => new Date(r.time));
-      json.forEach(r => {
+      labelsRaw = json.map((r) => new Date(r.time));
+      json.forEach((r) => {
         series.pm1.push(safeNumber(r.pm1));
         series.pm25.push(safeNumber(r.pm25));
         series.pm10.push(safeNumber(r.pm10));
@@ -297,13 +282,11 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadData() {
     try {
       const payload = makeRequestPayload();
-      console.log("[NebuleAir] Requête Influx : ", payload);
+      console.log("[NebuleAir] Requête Influx :", payload);
 
       const resp = await fetch(INFLUX_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
@@ -313,7 +296,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const json = await resp.json();
-
       parseInfluxResponse(json);
       updateChartDatasets();
       updateLiveCards();
@@ -337,12 +319,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const lastH    = lastNonNull(series.humidite);
     const lastWifi = lastNonNull(series.wifi);
 
-    pm1ValueEl.textContent  = lastPm1  != null ? lastPm1.toFixed(1)  : "--";
-    pm25ValueEl.textContent = lastPm25 != null ? lastPm25.toFixed(1) : "--";
-    pm10ValueEl.textContent = lastPm10 != null ? lastPm10.toFixed(1) : "--";
-    tempValueEl.textContent = lastT    != null ? lastT.toFixed(1)    : "--";
-    humValueEl.textContent  = lastH    != null ? lastH.toFixed(0)    : "--";
-    wifiValueEl.textContent = lastWifi != null ? lastWifi.toFixed(0) : "--";
+    if (pm1ValueEl)  pm1ValueEl.textContent  = lastPm1  != null ? lastPm1.toFixed(1)  : "--";
+    if (pm25ValueEl) pm25ValueEl.textContent = lastPm25 != null ? lastPm25.toFixed(1) : "--";
+    if (pm10ValueEl) pm10ValueEl.textContent = lastPm10 != null ? lastPm10.toFixed(1) : "--";
+    if (tempValueEl) tempValueEl.textContent = lastT    != null ? lastT.toFixed(1)    : "--";
+    if (humValueEl)  humValueEl.textContent  = lastH    != null ? lastH.toFixed(0)    : "--";
+    if (wifiValueEl) wifiValueEl.textContent = lastWifi != null ? lastWifi.toFixed(0) : "--";
   }
 
   // ============================
@@ -360,9 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   [pm1Toggle, pm25Toggle, pm10Toggle, tempToggle, humToggle].forEach((el) => {
     if (!el) return;
-    el.addEventListener("change", () => {
-      syncTogglesWithChart();
-    });
+    el.addEventListener("change", syncTogglesWithChart);
   });
 
   rangeButtons.forEach((btn) => {
@@ -372,7 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentRange = btn.dataset.range;
       customRange = null;
       if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
+      if (endDateInput)   endDateInput.value   = "";
       loadData();
     });
   });
@@ -384,11 +364,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       const startISO = new Date(startDateInput.value + "T00:00:00").toISOString();
-      const endISO = new Date(endDateInput.value + "T23:59:59").toISOString();
+      const endISO   = new Date(endDateInput.value   + "T23:59:59").toISOString();
 
       customRange = { start: startISO, end: endISO };
-      rangeButtons.forEach((b) => b.classList.remove("active"));
       currentRange = "custom";
+      rangeButtons.forEach((b) => b.classList.remove("active"));
 
       loadData();
     });
@@ -396,7 +376,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (resetZoomBtn) {
     resetZoomBtn.addEventListener("click", () => {
-      // Pas de plugin zoom : on réinitialise juste les limites
       mainChart.options.scales.x.min = undefined;
       mainChart.options.scales.x.max = undefined;
       mainChart.update();
@@ -411,22 +390,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       let csv = "time,pm1,pm25,pm10,temperature,humidite,wifi\n";
-      labelsRaw.forEach((date, idx) => {
-        const line = [
-          date.toISOString(),
-          series.pm1[idx] ?? "",
-          series.pm25[idx] ?? "",
-          series.pm10[idx] ?? "",
-          series.temperature[idx] ?? "",
-          series.humidite[idx] ?? "",
-          series.wifi[idx] ?? ""
-        ].join(",");
-        csv += line + "\n";
+      labelsRaw.forEach((d, i) => {
+        csv += [
+          d.toISOString(),
+          series.pm1[i] ?? "",
+          series.pm25[i] ?? "",
+          series.pm10[i] ?? "",
+          series.temperature[i] ?? "",
+          series.humidite[i] ?? "",
+          series.wifi[i] ?? ""
+        ].join(",") + "\n";
       });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
       a.href = url;
       a.download = "nebuleair_data.csv";
       document.body.appendChild(a);
@@ -454,7 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
+      attribution: "&copy; OpenStreetMap"
     }).addTo(map);
 
     L.marker([SENSOR_LAT, SENSOR_LON])
@@ -468,8 +446,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ============================
 
   const snakeContainer = document.getElementById("snake-container");
-  const snakeCanvas = document.getElementById("snake-canvas");
-  const snakeCloseBtn = document.getElementById("snake-close");
+  const snakeCanvas    = document.getElementById("snake-canvas");
+  const snakeCloseBtn  = document.getElementById("snake-close");
   const snakeScoreSpan = document.getElementById("snake-score-value");
 
   let snakeCtx;
@@ -484,7 +462,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!snakeContainer || !snakeCanvas) return;
     snakeContainer.classList.remove("snake-hidden");
     snakeContainer.classList.add("snake-visible");
-
     snakeCtx = snakeCanvas.getContext("2d");
     startSnakeGame();
   }
@@ -518,7 +495,7 @@ document.addEventListener("DOMContentLoaded", () => {
       do {
         fx = Math.floor(Math.random() * cols);
         fy = Math.floor(Math.random() * rows);
-      } while (snakeBody.some(p => p.x === fx && p.y === fy));
+      } while (snakeBody.some((p) => p.x === fx && p.y === fy));
       snakeFood = { x: fx, y: fy };
     }
 
@@ -528,7 +505,6 @@ document.addEventListener("DOMContentLoaded", () => {
       snakeCtx.fillStyle = "#f9fafb";
       snakeCtx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
 
-      // Food
       if (snakeFood) {
         snakeCtx.fillStyle = "#22c55e";
         snakeCtx.fillRect(
@@ -539,14 +515,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
 
-      // Snake
       snakeCtx.fillStyle = "#2563eb";
-      snakeBody.forEach((seg, idx) => {
+      snakeBody.forEach((seg) => {
         snakeCtx.fillRect(
           seg.x * cellSize,
           seg.y * cellSize,
-          cellSize - (idx === 0 ? 2 : 4),
-          cellSize - (idx === 0 ? 2 : 4)
+          cellSize - 4,
+          cellSize - 4
         );
       });
     }
@@ -554,26 +529,22 @@ document.addEventListener("DOMContentLoaded", () => {
     function step() {
       const head = { ...snakeBody[0] };
       if (snakeDirection === "right") head.x++;
-      if (snakeDirection === "left") head.x--;
-      if (snakeDirection === "up") head.y--;
-      if (snakeDirection === "down") head.y++;
+      if (snakeDirection === "left")  head.x--;
+      if (snakeDirection === "up")    head.y--;
+      if (snakeDirection === "down")  head.y++;
 
-      // murs
       if (head.x < 0 || head.y < 0 || head.x >= cols || head.y >= rows) {
         return gameOver();
       }
-
-      // self collision
-      if (snakeBody.some(seg => seg.x === head.x && seg.y === head.y)) {
+      if (snakeBody.some((seg) => seg.x === head.x && seg.y === head.y)) {
         return gameOver();
       }
 
       snakeBody.unshift(head);
 
-      // food ?
       if (snakeFood && head.x === snakeFood.x && head.y === snakeFood.y) {
         snakeScore++;
-        if (snakeScoreSpan) snakeScoreSpan.textContent = snakeScore.toString();
+        if (snakeScoreSpan) snakeScoreSpan.textContent = String(snakeScore);
         placeFood();
       } else {
         snakeBody.pop();
@@ -603,40 +574,35 @@ document.addEventListener("DOMContentLoaded", () => {
     snakeTimer = setInterval(step, 130);
   }
 
-  // Trigger : taper "snake"
+  // Déclenchement en tapant "snake"
   document.addEventListener("keydown", (e) => {
     const key = e.key.toLowerCase();
 
-    // Gestion du cheat code
     if (/^[a-z0-9]$/.test(key)) {
       keyBuffer += key;
-      if (keyBuffer.length > 5) {
-        keyBuffer = keyBuffer.slice(-5);
-      }
+      if (keyBuffer.length > 5) keyBuffer = keyBuffer.slice(-5);
       if (keyBuffer === "snake") {
-        console.log("[NebuleAir] Easter Egg Snake activé !");
-        showSnake();
+        console.log("[NebuleAir] Easter Egg Snake activé");
         keyBuffer = "";
+        showSnake();
       }
     } else if (key === "escape") {
       keyBuffer = "";
     }
 
-    // Contrôle du serpent
     if (!snakeTimer) return;
+
     if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       e.preventDefault();
-      if (key === "arrowup" && snakeDirection !== "down") snakeDirection = "up";
-      if (key === "arrowdown" && snakeDirection !== "up") snakeDirection = "down";
+      if (key === "arrowup" && snakeDirection !== "down")    snakeDirection = "up";
+      if (key === "arrowdown" && snakeDirection !== "up")    snakeDirection = "down";
       if (key === "arrowleft" && snakeDirection !== "right") snakeDirection = "left";
       if (key === "arrowright" && snakeDirection !== "left") snakeDirection = "right";
     }
   });
 
   if (snakeCloseBtn) {
-    snakeCloseBtn.addEventListener("click", () => {
-      hideSnake();
-    });
+    snakeCloseBtn.addEventListener("click", hideSnake);
   }
 
   // ============================
