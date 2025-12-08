@@ -119,16 +119,25 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     });
   }
 
-  function askNameAndStoreScore() {
-    const pseudo = window.prompt(
-      `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
-      ""
-    );
+ function askNameAndStoreScore() {
+  const pseudo = window.prompt(
+    `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
+    ""
+  );
 
-    // si l'utilisateur annule ou laisse vide, on met "Anonyme"
-    const name = (pseudo && pseudo.trim()) || "Anonyme";
-    addScore(currentMode, name, score);
+  // Si l'utilisateur clique sur "Annuler" → on ne l'ajoute pas au classement
+  if (pseudo === null) {
+    return;
   }
+
+  const trimmed = pseudo.trim();
+
+  // Si le joueur laisse vide mais clique sur OK → on met "Anonyme"
+  const name = trimmed === "" ? "Anonyme" : trimmed;
+
+  addScore(currentMode, name, score);
+}
+
 
   // ==========================
   //   GESTION DU JEU
