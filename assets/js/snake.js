@@ -396,9 +396,9 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   };
 
   // Auto-init si le canvas est déjà dans la page
-  document.addEventListener("DOMContentLoaded", () => {
-    if (document.getElementById("snakeCanvas")) {
-      init("snakeCanvas");
-    }
-  });
+ // document.addEventListener("DOMContentLoaded", () => {
+  //  if (document.getElementById("snakeCanvas")) {
+  //   init("snakeCanvas");
+ //   }
+//  });
 })();
