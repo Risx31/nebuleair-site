@@ -1,5 +1,5 @@
 // assets/js/snake.js
-// NebuleAir Snake – avec classements & modes de vitesse
+// NebuleAir Snake – classements, vitesses & bonus
 const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
@@ -29,11 +29,29 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   let snake = [];
   let snakeDir = { x: 1, y: 0 };
   let nextDir = { x: 1, y: 0 };
-  let apple = { x: 10, y: 10 };
   let running = false;
   let score = 0;
 
-  // Classements
+  // Pommes & bonus
+  // type de pomme : "normal" | "golden"
+  let apples = [];
+  // type de bonus : "turbo" | "double" | "jackpot" | "slim"
+  let bonusItems = [];
+
+  const BONUS_TYPES = ["turbo", "double", "jackpot", "slim"];
+
+  // Effets actifs
+  const activeEffects = {
+    turbo: false,
+    doubleScore: false
+  };
+
+  const effectTimeouts = {
+    turbo: null,
+    doubleScore: null
+  };
+
+  // Classements (localStorage)
   let leaderboards = {
     lent: [],
     normal: [],
@@ -119,25 +137,197 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     });
   }
 
- function askNameAndStoreScore() {
-  const pseudo = window.prompt(
-    `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
-    ""
-  );
+  function askNameAndStoreScore() {
+    const pseudo = window.prompt(
+      `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
+      ""
+    );
 
-  // Si l'utilisateur clique sur "Annuler" → on ne l'ajoute pas au classement
-  if (pseudo === null) {
-    return;
+    // Si l'utilisateur clique sur "Annuler" → on ne l'ajoute pas au classement
+    if (pseudo === null) {
+      return;
+    }
+
+    const trimmed = pseudo.trim();
+
+    // Si le joueur laisse vide mais clique sur OK → on met "Anonyme"
+    const name = trimmed === "" ? "Anonyme" : trimmed;
+
+    addScore(currentMode, name, score);
   }
 
-  const trimmed = pseudo.trim();
+  // ==========================
+  //   UTILITAIRES MAP/BONUS
+  // ==========================
 
-  // Si le joueur laisse vide mais clique sur OK → on met "Anonyme"
-  const name = trimmed === "" ? "Anonyme" : trimmed;
+  function isCellOccupied(x, y) {
+    if (snake.some(seg => seg.x === x && seg.y === y)) return true;
+    if (apples.some(a => a.x === x && a.y === y)) return true;
+    if (bonusItems.some(b => b.x === x && b.y === y)) return true;
+    return false;
+  }
 
-  addScore(currentMode, name, score);
-}
+  function randomFreeCell() {
+    let x, y;
+    do {
+      x = Math.floor(Math.random() * tileCount);
+      y = Math.floor(Math.random() * tileCount);
+    } while (isCellOccupied(x, y));
+    return { x, y };
+  }
 
+  function spawnApple(type = "normal") {
+    const pos = randomFreeCell();
+    apples.push({
+      x: pos.x,
+      y: pos.y,
+      type
+    });
+  }
+
+  function spawnBonus(type) {
+    const pos = randomFreeCell();
+    const lifetimeMs = 8000; // visible 8 s sur la map
+    bonusItems.push({
+      x: pos.x,
+      y: pos.y,
+      type,
+      expiresAt: Date.now() + lifetimeMs
+    });
+  }
+
+  function maybeSpawnRareStuff() {
+    // Appelé après chaque pomme mangée.
+    // On tire une seule fois, et on décide s'il se passe quelque chose.
+    // Probabilités approx :
+    // 1% pomme dorée, 2% turbo, 3% double, 4% jackpot, 5% slim.
+    // Soit 1 + 2 + 3 + 4 + 5 = 15% au total max.
+
+    const r = Math.random() * 100;
+
+    // Pomme dorée – 1%
+    if (r < 1) {
+      const alreadyGolden = apples.some(a => a.type === "golden");
+      if (!alreadyGolden) {
+        spawnApple("golden");
+      }
+      return;
+    }
+
+    // Pas plus d'un bonus sur la map à la fois pour garder ça lisible
+    if (bonusItems.length > 0) return;
+
+    // Turbo – 2% (1–3)
+    if (r < 3) {
+      spawnBonus("turbo");
+      return;
+    }
+
+    // Double Score – 3% (3–6)
+    if (r < 6) {
+      spawnBonus("double");
+      return;
+    }
+
+    // Jackpot – 4% (6–10)
+    if (r < 10) {
+      spawnBonus("jackpot");
+      return;
+    }
+
+    // Minceur express – 5% (10–15)
+    if (r < 15) {
+      spawnBonus("slim");
+    }
+  }
+
+  function cleanExpiredBonuses() {
+    if (!bonusItems.length) return;
+    const now = Date.now();
+    bonusItems = bonusItems.filter(b => b.expiresAt > now);
+  }
+
+  // ==========================
+  //   GESTION DES EFFETS
+  // ==========================
+
+  function getAppleScoreGain() {
+    let gain = 1;
+
+    if (activeEffects.doubleScore) {
+      gain *= 2;
+    }
+    if (activeEffects.turbo) {
+      // turbo = +1 point par pomme en plus
+      gain += 1;
+    }
+
+    return gain;
+  }
+
+  function applySlimEffect() {
+    const minLength = 3;
+    let toRemove = 4; // on retire jusqu'à 4 segments
+    while (snake.length > minLength && toRemove > 0) {
+      snake.pop();
+      toRemove--;
+    }
+  }
+
+  function activateTurbo() {
+    activeEffects.turbo = true;
+    if (effectTimeouts.turbo) clearTimeout(effectTimeouts.turbo);
+
+    effectTimeouts.turbo = setTimeout(() => {
+      activeEffects.turbo = false;
+      restartGameInterval();
+    }, 5000); // 5 s
+
+    restartGameInterval();
+  }
+
+  function activateDoubleScore() {
+    activeEffects.doubleScore = true;
+    if (effectTimeouts.doubleScore) clearTimeout(effectTimeouts.doubleScore);
+
+    effectTimeouts.doubleScore = setTimeout(() => {
+      activeEffects.doubleScore = false;
+    }, 10000); // 10 s
+  }
+
+  function clearAllEffects() {
+    activeEffects.turbo = false;
+    activeEffects.doubleScore = false;
+
+    if (effectTimeouts.turbo) {
+      clearTimeout(effectTimeouts.turbo);
+      effectTimeouts.turbo = null;
+    }
+    if (effectTimeouts.doubleScore) {
+      clearTimeout(effectTimeouts.doubleScore);
+      effectTimeouts.doubleScore = null;
+    }
+  }
+
+  function applyBonusEffect(type) {
+    switch (type) {
+      case "turbo":
+        activateTurbo();
+        break;
+      case "double":
+        activateDoubleScore();
+        break;
+      case "jackpot":
+        score += 5;
+        updateScoreLabel();
+        break;
+      case "slim":
+        applySlimEffect();
+        break;
+      default:
+        break;
+    }
+  }
 
   // ==========================
   //   GESTION DU JEU
@@ -156,22 +346,62 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     snakeDir = { x: 1, y: 0 };
     nextDir = { x: 1, y: 0 };
 
-    placeApple();
+    apples = [];
+    bonusItems = [];
+    clearAllEffects();
+
+    spawnApple("normal"); // au moins une pomme au départ
+
     score = 0;
     updateScoreLabel();
     running = true;
   }
 
-  function placeApple() {
-    let valid = false;
-    let x, y;
-    while (!valid) {
-      x = Math.floor(Math.random() * tileCount);
-      y = Math.floor(Math.random() * tileCount);
-      valid = !snake.some(seg => seg.x === x && seg.y === y);
+  function handleAppleCollisions(head) {
+    let ateApple = false;
+
+    for (let i = 0; i < apples.length; i++) {
+      const a = apples[i];
+      if (a.x === head.x && a.y === head.y) {
+        ateApple = true;
+
+        // score pour cette pomme
+        const gain = getAppleScoreGain();
+        score += gain;
+        updateScoreLabel();
+
+        // on enlève la pomme mangée
+        apples.splice(i, 1);
+
+        if (a.type === "golden") {
+          // Pomme dorée → 5 nouvelles pommes normales
+          for (let k = 0; k < 5; k++) {
+            spawnApple("normal");
+          }
+        } else {
+          // pomme normale : on en remet une
+          spawnApple("normal");
+        }
+
+        // après toute pomme mangée, on tente les bonus rares
+        maybeSpawnRareStuff();
+
+        break;
+      }
     }
-    apple.x = x;
-    apple.y = y;
+
+    return ateApple;
+  }
+
+  function handleBonusCollisions(head) {
+    for (let i = 0; i < bonusItems.length; i++) {
+      const b = bonusItems[i];
+      if (b.x === head.x && b.y === head.y) {
+        applyBonusEffect(b.type);
+        bonusItems.splice(i, 1);
+        break;
+      }
+    }
   }
 
   function updateScoreLabel() {
@@ -179,6 +409,20 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     if (el) {
       el.textContent = score;
     }
+  }
+
+  function getCurrentSpeed() {
+    let base = SPEEDS[currentMode] || SPEEDS.normal;
+    if (activeEffects.turbo) {
+      base = Math.max(30, Math.floor(base * 0.6)); // ~40% plus rapide
+    }
+    return base;
+  }
+
+  function restartGameInterval() {
+    if (gameInterval) clearInterval(gameInterval);
+    if (!running) return;
+    gameInterval = setInterval(gameLoop, getCurrentSpeed());
   }
 
   function gameLoop() {
@@ -212,15 +456,19 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     // Ajouter tête
     snake.unshift(newHead);
 
-    // Mange la pomme ?
-    if (newHead.x === apple.x && newHead.y === apple.y) {
-      score++;
-      updateScoreLabel();
-      placeApple();
-    } else {
-      // Sinon, on supprime la queue
+    // Pommes
+    const ateApple = handleAppleCollisions(newHead);
+
+    // Bonus
+    handleBonusCollisions(newHead);
+
+    // Si on n'a pas mangé de pomme, on enlève la queue
+    if (!ateApple) {
       snake.pop();
     }
+
+    // On nettoie les bonus expirés
+    cleanExpiredBonuses();
 
     draw();
   }
@@ -229,6 +477,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     running = false;
     clearInterval(gameInterval);
     gameInterval = null;
+
+    clearAllEffects();
 
     drawGameOver();
     askNameAndStoreScore();
@@ -272,24 +522,58 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     });
   }
 
-  function drawApple() {
-    ctx.fillStyle = "#ff4757";
-    ctx.beginPath();
-    ctx.arc(
-      apple.x * tileSize + tileSize / 2,
-      apple.y * tileSize + tileSize / 2,
-      tileSize / 2 - 2,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
+  function drawApples() {
+    apples.forEach(a => {
+      if (a.type === "golden") {
+        ctx.fillStyle = "#facc15"; // jaune/or
+      } else {
+        ctx.fillStyle = "#ff4757"; // rouge
+      }
+      ctx.beginPath();
+      ctx.arc(
+        a.x * tileSize + tileSize / 2,
+        a.y * tileSize + tileSize / 2,
+        tileSize / 2 - 2,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    });
+  }
+
+  function drawBonuses() {
+    bonusItems.forEach(b => {
+      switch (b.type) {
+        case "turbo":
+          ctx.fillStyle = "#f97316"; // orange
+          break;
+        case "double":
+          ctx.fillStyle = "#22c55e"; // vert
+          break;
+        case "jackpot":
+          ctx.fillStyle = "#eab308"; // jaune
+          break;
+        case "slim":
+          ctx.fillStyle = "#a855f7"; // violet
+          break;
+        default:
+          ctx.fillStyle = "#ffffff";
+      }
+      ctx.fillRect(
+        b.x * tileSize + 3,
+        b.y * tileSize + 3,
+        tileSize - 6,
+        tileSize - 6
+      );
+    });
   }
 
   function draw() {
     clearCanvas();
     drawGrid();
     drawSnake();
-    drawApple();
+    drawApples();
+    drawBonuses();
   }
 
   function drawGameOver() {
@@ -332,9 +616,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
 
     if (running) {
-      // on relance la boucle avec la nouvelle vitesse
-      if (gameInterval) clearInterval(gameInterval);
-      gameInterval = setInterval(gameLoop, SPEEDS[currentMode]);
+      restartGameInterval();
     }
 
     renderScoreboards();
@@ -369,10 +651,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     renderScoreboards();
     setSpeedMode(currentMode);
     resetGame();
-
-    // Démarre la boucle de jeu
-    if (gameInterval) clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, SPEEDS[currentMode]);
+    restartGameInterval();
   }
 
   // Contrôle de la direction avec ZQSD / flèches
@@ -404,10 +683,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
   };
 
-  // Auto-init si le canvas est déjà dans la page
- // document.addEventListener("DOMContentLoaded", () => {
-  //  if (document.getElementById("snakeCanvas")) {
-  //   init("snakeCanvas");
- //   }
-//  });
+  // Surtout pas d'auto-init ici :
+  // c'est le dashboard qui appelle NebuleAirSnake.init("snakeCanvas")
+  // quand on tape "snake".
 })();
