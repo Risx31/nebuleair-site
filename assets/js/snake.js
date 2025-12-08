@@ -1,151 +1,214 @@
-// ============================
-//  EASTER EGG : SNAKE (trigger "snake")
-// ============================
+// assets/js/snake.js
+// NebuleAir Snake – avec classements & modes de vitesse
 
-document.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("snake-container");
-  const canvas = document.getElementById("snake-canvas");
-  const closeBtn = document.getElementById("snake-close");
-  const scoreSpan = document.getElementById("snake-score-value");
+(function () {
+  "use strict";
 
-  if (!container || !canvas || !closeBtn || !scoreSpan) {
-    console.warn("[NebuleAir] Snake : éléments HTML manquants, easter egg désactivé.");
-    return;
-  }
+  // ==========================
+  //   CONFIG GÉNÉRALE
+  // ==========================
 
-  const ctx = canvas.getContext("2d");
-  const tileSize = 20;
-  const cols = canvas.width / tileSize;
-  const rows = canvas.height / tileSize;
+  const SPEEDS = {
+    lent: 150,     // ms entre 2 frames
+    normal: 100,
+    rapide: 60
+  };
 
+  const STORAGE_KEY = "nebuleair_snake_leaderboards_v1";
+
+  let currentMode = "normal";   // "lent" | "normal" | "rapide"
+  let gameInterval = null;
+
+  // Canvas & dessin
+  let canvas, ctx;
+  let tileCount = 20;
+  let tileSize = 20;
+
+  // État du jeu
   let snake = [];
-  let direction = { x: 1, y: 0 };
-  let nextDirection = { x: 1, y: 0 };
-  let food = null;
+  let snakeDir = { x: 1, y: 0 };
+  let nextDir = { x: 1, y: 0 };
+  let apple = { x: 10, y: 10 };
   let running = false;
-  let loopId = null;
   let score = 0;
 
-  // ---------- Affichage overlay ----------
-  function showSnake() {
-    container.classList.remove("snake-hidden");
-    resetGame();
-    startLoop();
-  }
+  // Classements
+  let leaderboards = {
+    lent: [],
+    normal: [],
+    rapide: []
+  };
 
-  function hideSnake() {
-    container.classList.add("snake-hidden");
-    stopLoop();
-  }
+  // ==========================
+  //   LEADERBOARDS
+  // ==========================
 
-  closeBtn.addEventListener("click", hideSnake);
-  container.addEventListener("click", (e) => {
-    if (e.target === container) hideSnake();
-  });
-
-  // ---------- Secret "snake" ----------
-  const secret = "snake";
-  let buffer = "";
-
-  window.addEventListener("keydown", (e) => {
-    const key = e.key.toLowerCase();
-
-    // Si l'overlay est ouvert : on gère les flèches
-    if (!container.classList.contains("snake-hidden")) {
-      if (key === "arrowup" && direction.y !== 1) {
-        nextDirection = { x: 0, y: -1 };
-      } else if (key === "arrowdown" && direction.y !== -1) {
-        nextDirection = { x: 0, y: 1 };
-      } else if (key === "arrowleft" && direction.x !== 1) {
-        nextDirection = { x: -1, y: 0 };
-      } else if (key === "arrowright" && direction.x !== -1) {
-        nextDirection = { x: 1, y: 0 };
+  function loadLeaderboards() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        leaderboards = {
+          lent: Array.isArray(data.lent) ? data.lent : [],
+          normal: Array.isArray(data.normal) ? data.normal : [],
+          rapide: Array.isArray(data.rapide) ? data.rapide : []
+        };
       }
-      return;
+    } catch (e) {
+      console.warn("[Snake] Impossible de charger les scores :", e);
     }
+  }
 
-    // Si fermé : on écoute juste le mot secret
-    if (!/[a-z]/.test(key)) return;
-
-    buffer += key;
-    if (buffer.length > secret.length) {
-      buffer = buffer.slice(-secret.length);
+  function saveLeaderboards() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(leaderboards));
+    } catch (e) {
+      console.warn("[Snake] Impossible d’enregistrer les scores :", e);
     }
+  }
 
-    if (buffer === secret) {
-      buffer = "";
-      showSnake();
-    }
-  });
+  function addScore(mode, name, value) {
+    if (!leaderboards[mode]) return;
 
-  // ---------- Logique du jeu ----------
+    leaderboards[mode].push({
+      name: name || "Anonyme",
+      score: value,
+      date: new Date().toISOString()
+    });
+
+    // tri décroissant
+    leaderboards[mode].sort((a, b) => b.score - a.score);
+
+    // on garde les 10 meilleurs
+    leaderboards[mode] = leaderboards[mode].slice(0, 10);
+
+    saveLeaderboards();
+    renderScoreboards();
+  }
+
+  function renderScoreboards() {
+    const modes = ["lent", "normal", "rapide"];
+
+    modes.forEach(mode => {
+      const tbody = document.getElementById(`snake-highscores-${mode}`);
+      if (!tbody) return; // si pas de tableau dans le HTML, on ne fait rien
+
+      tbody.innerHTML = "";
+
+      const scores = leaderboards[mode] || [];
+      scores.forEach((entry, index) => {
+        const tr = document.createElement("tr");
+
+        const tdRank = document.createElement("td");
+        tdRank.textContent = index + 1;
+
+        const tdName = document.createElement("td");
+        tdName.textContent = entry.name;
+
+        const tdScore = document.createElement("td");
+        tdScore.textContent = entry.score;
+
+        tr.appendChild(tdRank);
+        tr.appendChild(tdName);
+        tr.appendChild(tdScore);
+
+        tbody.appendChild(tr);
+      });
+    });
+  }
+
+  function askNameAndStoreScore() {
+    const pseudo = window.prompt(
+      `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
+      ""
+    );
+
+    // si l'utilisateur annule ou laisse vide, on met "Anonyme"
+    const name = (pseudo && pseudo.trim()) || "Anonyme";
+    addScore(currentMode, name, score);
+  }
+
+  // ==========================
+  //   GESTION DU JEU
+  // ==========================
+
   function resetGame() {
+    const startX = Math.floor(tileCount / 2);
+    const startY = Math.floor(tileCount / 2);
+
     snake = [
-      { x: Math.floor(cols / 2), y: Math.floor(rows / 2) }
+      { x: startX, y: startY },
+      { x: startX - 1, y: startY },
+      { x: startX - 2, y: startY }
     ];
-    direction = { x: 1, y: 0 };
-    nextDirection = { x: 1, y: 0 };
+
+    snakeDir = { x: 1, y: 0 };
+    nextDir = { x: 1, y: 0 };
+
+    placeApple();
     score = 0;
-    scoreSpan.textContent = score.toString();
-    placeFood();
-    draw();
-  }
-
-  function startLoop() {
-    if (running) return;
+    updateScoreLabel();
     running = true;
-    loopId = setInterval(tick, 120);
   }
 
-  function stopLoop() {
-    running = false;
-    if (loopId) {
-      clearInterval(loopId);
-      loopId = null;
-    }
-  }
-
-  function placeFood() {
+  function placeApple() {
     let valid = false;
+    let x, y;
     while (!valid) {
-      const fx = Math.floor(Math.random() * cols);
-      const fy = Math.floor(Math.random() * rows);
-      valid = !snake.some(seg => seg.x === fx && seg.y === fy);
-      if (valid) {
-        food = { x: fx, y: fy };
-      }
+      x = Math.floor(Math.random() * tileCount);
+      y = Math.floor(Math.random() * tileCount);
+      valid = !snake.some(seg => seg.x === x && seg.y === y);
+    }
+    apple.x = x;
+    apple.y = y;
+  }
+
+  function updateScoreLabel() {
+    const el = document.getElementById("snake-score-current");
+    if (el) {
+      el.textContent = score;
     }
   }
 
-  function tick() {
-    direction = nextDirection;
+  function gameLoop() {
+    if (!running) return;
 
+    // Appliquer la direction tapée
+    snakeDir = { ...nextDir };
+
+    // Nouvelle position de la tête
     const head = snake[0];
     const newHead = {
-      x: head.x + direction.x,
-      y: head.y + direction.y
+      x: head.x + snakeDir.x,
+      y: head.y + snakeDir.y
     };
 
-    // Collision mur
-    if (newHead.x < 0 || newHead.x >= cols || newHead.y < 0 || newHead.y >= rows) {
-      gameOver();
-      return;
+    // Collision murs
+    if (
+      newHead.x < 0 ||
+      newHead.x >= tileCount ||
+      newHead.y < 0 ||
+      newHead.y >= tileCount
+    ) {
+      return gameOver();
     }
 
-    // Collision sur soi-même
+    // Collision avec soi-même
     if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
-      gameOver();
-      return;
+      return gameOver();
     }
 
+    // Ajouter tête
     snake.unshift(newHead);
 
-    // Mange la pomme
-    if (food && newHead.x === food.x && newHead.y === food.y) {
-      score += 10;
-      scoreSpan.textContent = score.toString();
-      placeFood();
+    // Mange la pomme ?
+    if (newHead.x === apple.x && newHead.y === apple.y) {
+      score++;
+      updateScoreLabel();
+      placeApple();
     } else {
+      // Sinon, on supprime la queue
       snake.pop();
     }
 
@@ -153,40 +216,188 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function gameOver() {
-    stopLoop();
-    draw(true);
-    setTimeout(() => {
-      resetGame();
-      startLoop();
-    }, 700);
+    running = false;
+    clearInterval(gameInterval);
+    gameInterval = null;
+
+    drawGameOver();
+    askNameAndStoreScore();
   }
 
-  function draw(isGameOver = false) {
-    ctx.fillStyle = "#020617";
+  // ==========================
+  //   DESSIN
+  // ==========================
+
+  function clearCanvas() {
+    ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
-    if (food) {
-      ctx.fillStyle = "#f97316";
-      ctx.fillRect(
-        food.x * tileSize + 2,
-        food.y * tileSize + 2,
-        tileSize - 4,
-        tileSize - 4
-      );
+  function drawGrid() {
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    for (let i = 0; i < tileCount; i++) {
+      // verticales
+      ctx.beginPath();
+      ctx.moveTo(i * tileSize, 0);
+      ctx.lineTo(i * tileSize, canvas.height);
+      ctx.stroke();
+
+      // horizontales
+      ctx.beginPath();
+      ctx.moveTo(0, i * tileSize);
+      ctx.lineTo(canvas.width, i * tileSize);
+      ctx.stroke();
     }
+  }
 
+  function drawSnake() {
     snake.forEach((seg, index) => {
-      if (index === 0) {
-        ctx.fillStyle = isGameOver ? "#ef4444" : "#22c55e";
-      } else {
-        ctx.fillStyle = isGameOver ? "#b91c1c" : "#4ade80";
-      }
+      ctx.fillStyle = index === 0 ? "#00ff7f" : "#1e90ff";
       ctx.fillRect(
-        seg.x * tileSize + 2,
-        seg.y * tileSize + 2,
-        tileSize - 4,
-        tileSize - 4
+        seg.x * tileSize + 1,
+        seg.y * tileSize + 1,
+        tileSize - 2,
+        tileSize - 2
       );
     });
   }
-});
+
+  function drawApple() {
+    ctx.fillStyle = "#ff4757";
+    ctx.beginPath();
+    ctx.arc(
+      apple.x * tileSize + tileSize / 2,
+      apple.y * tileSize + tileSize / 2,
+      tileSize / 2 - 2,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+
+  function draw() {
+    clearCanvas();
+    drawGrid();
+    drawSnake();
+    drawApple();
+  }
+
+  function drawGameOver() {
+    clearCanvas();
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#ff4757";
+    ctx.font = "bold 28px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 10);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "16px sans-serif";
+    ctx.fillText(
+      `Score : ${score}`,
+      canvas.width / 2,
+      canvas.height / 2 + 20
+    );
+  }
+
+  // ==========================
+  //   VITESSE & MODES
+  // ==========================
+
+  function setSpeedMode(mode) {
+    if (!SPEEDS[mode]) return;
+    currentMode = mode;
+
+    // Mettre à jour l'affichage de la vitesse si l'élément existe
+    const label = document.getElementById("snake-speed-label");
+    if (label) {
+      const txt =
+        mode === "lent"
+          ? "Lent"
+          : mode === "rapide"
+          ? "Rapide"
+          : "Normal";
+      label.textContent = txt;
+    }
+
+    if (running) {
+      // on relance la boucle avec la nouvelle vitesse
+      if (gameInterval) clearInterval(gameInterval);
+      gameInterval = setInterval(gameLoop, SPEEDS[currentMode]);
+    }
+
+    renderScoreboards();
+  }
+
+  // Raccourcis clavier : 1 = lent, 2 = normal, 3 = rapide
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "1") setSpeedMode("lent");
+    if (e.key === "2") setSpeedMode("normal");
+    if (e.key === "3") setSpeedMode("rapide");
+  });
+
+  // ==========================
+  //   INIT
+  // ==========================
+
+  function init(canvasId = "snakeCanvas") {
+    canvas = document.getElementById(canvasId);
+    if (!canvas) {
+      console.warn("[Snake] Canvas introuvable, id =", canvasId);
+      return;
+    }
+    ctx = canvas.getContext("2d");
+
+    // si le canvas n'a pas de taille définie, on en met une
+    if (!canvas.width) canvas.width = tileCount * tileSize;
+    if (!canvas.height) canvas.height = tileCount * tileSize;
+
+    tileSize = Math.floor(Math.min(canvas.width, canvas.height) / tileCount);
+
+    loadLeaderboards();
+    renderScoreboards();
+    setSpeedMode(currentMode);
+    resetGame();
+
+    // Démarre la boucle de jeu
+    if (gameInterval) clearInterval(gameInterval);
+    gameInterval = setInterval(gameLoop, SPEEDS[currentMode]);
+  }
+
+  // Contrôle de la direction avec ZQSD / flèches
+  document.addEventListener("keydown", (e) => {
+    // On évite de tourner à 180° brutalement
+    if (e.key === "ArrowUp" || e.key === "z") {
+      if (snakeDir.y === 1) return;
+      nextDir = { x: 0, y: -1 };
+    } else if (e.key === "ArrowDown" || e.key === "s") {
+      if (snakeDir.y === -1) return;
+      nextDir = { x: 0, y: 1 };
+    } else if (e.key === "ArrowLeft" || e.key === "q") {
+      if (snakeDir.x === 1) return;
+      nextDir = { x: -1, y: 0 };
+    } else if (e.key === "ArrowRight" || e.key === "d") {
+      if (snakeDir.x === -1) return;
+      nextDir = { x: 1, y: 0 };
+    }
+  });
+
+  // Expose quelques fonctions globales (pratique pour dashboard.js)
+  window.NebuleAirSnake = {
+    init,
+    setMode: setSpeedMode,
+    resetScores: function () {
+      leaderboards = { lent: [], normal: [], rapide: [] };
+      saveLeaderboards();
+      renderScoreboards();
+    }
+  };
+
+  // Auto-init si le canvas est déjà dans la page
+  document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("snakeCanvas")) {
+      init("snakeCanvas");
+    }
+  });
+})();
