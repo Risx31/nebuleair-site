@@ -4,42 +4,53 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[NebuleAir] Dashboard JS chargé");
 
   // ============================
-  //  CONFIG GÉNÉRALE
+  //  CONFIG BACKEND / INFLUX
   // ============================
   const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
   const BUCKET = "Nodule Air";
 
-  let currentRange = "1h";   // "1h", "6h", "24h", "7j", "30j"
-  let customRange = null;    // { start: Date, end: Date } si dates choisies
+  // Plage actuelle (boutons rapides)
+  let currentRange = "1h"; // "1h", "6h", "24h", "7j", "30j"
+  // Plage custom (dates)
+  let customRange = null;
 
-  // Données brutes
+  // Labels (objets Date)
   let labelsRaw = [];
+
+  // Séries de valeurs
   let series = {
     pm1: [],
     pm25: [],
     pm10: [],
     temperature: [],
-    humidite: []
+    humidite: [],
+    wifi: []
   };
 
   // ============================
   //  RÉFÉRENCES DOM
   // ============================
+  const canvas = document.getElementById("mainChart");
+  if (!canvas) {
+    console.error("[NebuleAir] Canvas #mainChart introuvable");
+    return;
+  }
+  const ctx = canvas.getContext("2d");
 
-  const pm1Span = document.getElementById("pm1-value");
-  const pm25Span = document.getElementById("pm25-value");
-  const pm10Span = document.getElementById("pm10-value");
-  const tempSpan = document.getElementById("temp-value");
-  const humSpan = document.getElementById("hum-value");
-  const wifiSpan = document.getElementById("wifi-value");
+  const pm1ValueEl  = document.getElementById("pm1-value");
+  const pm25ValueEl = document.getElementById("pm25-value");
+  const pm10ValueEl = document.getElementById("pm10-value");
+  const tempValueEl = document.getElementById("temp-value");
+  const humValueEl  = document.getElementById("hum-value");
+  const wifiValueEl = document.getElementById("wifi-value");
 
-  const pm1Toggle = document.getElementById("pm1-toggle");
+  const pm1Toggle  = document.getElementById("pm1-toggle");
   const pm25Toggle = document.getElementById("pm25-toggle");
   const pm10Toggle = document.getElementById("pm10-toggle");
   const tempToggle = document.getElementById("temp-toggle");
-  const humToggle = document.getElementById("hum-toggle");
+  const humToggle  = document.getElementById("hum-toggle");
 
-  const rangeButtons = Array.from(document.querySelectorAll(".range-btn"));
+  const rangeButtons = document.querySelectorAll(".range-btn");
   const startDateInput = document.getElementById("start-date");
   const endDateInput = document.getElementById("end-date");
   const applyRangeBtn = document.getElementById("apply-range");
@@ -48,308 +59,370 @@ document.addEventListener("DOMContentLoaded", () => {
   const exportCsvBtn = document.getElementById("export-csv");
 
   // ============================
-  //  INIT CHART.JS
+  //  CHART.JS
   // ============================
 
-  const canvas = document.getElementById("mainChart");
-  let mainChart = null;
-
-  if (canvas && window.Chart) {
-    const ctx = canvas.getContext("2d");
-
-    const baseDatasets = [
-      {
-        id: "pm1",
-        label: "PM1",
-        borderColor: "#3b82f6",
-        backgroundColor: "rgba(59, 130, 246, 0.15)",
-      },
-      {
-        id: "pm25",
-        label: "PM2.5",
-        borderColor: "#10b981",
-        backgroundColor: "rgba(16, 185, 129, 0.15)",
-      },
-      {
-        id: "pm10",
-        label: "PM10",
-        borderColor: "#f97316",
-        backgroundColor: "rgba(249, 115, 22, 0.15)",
-      },
-      {
-        id: "temperature",
-        label: "Température",
-        borderColor: "#ef4444",
-        backgroundColor: "rgba(239, 68, 68, 0.15)",
-      },
-      {
-        id: "humidite",
-        label: "Humidité",
-        borderColor: "#6366f1",
-        backgroundColor: "rgba(99, 102, 241, 0.15)",
-      },
-    ];
-
-    mainChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        datasets: baseDatasets.map((cfg) => ({
-          ...cfg,
+  const mainChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      // l’axe X est en temps, donc pas de labels ici
+      datasets: [
+        {
+          label: "PM1",
           data: [],
-          tension: 0.25,
-          pointRadius: 0,
+          parsing: false,
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37,99,235,0.1)",
+          tension: 0.2,
           borderWidth: 2,
-        })),
+          hidden: false
+        },
+        {
+          label: "PM2.5",
+          data: [],
+          parsing: false,
+          borderColor: "#16a34a",
+          backgroundColor: "rgba(22,163,74,0.1)",
+          tension: 0.2,
+          borderWidth: 2,
+          hidden: false
+        },
+        {
+          label: "PM10",
+          data: [],
+          parsing: false,
+          borderColor: "#f97316",
+          backgroundColor: "rgba(249,115,22,0.1)",
+          tension: 0.2,
+          borderWidth: 2,
+          hidden: false
+        },
+        {
+          label: "Température",
+          data: [],
+          parsing: false,
+          borderColor: "#ec4899",
+          backgroundColor: "rgba(236,72,153,0.08)",
+          tension: 0.2,
+          borderWidth: 2,
+          yAxisID: "yTempHum",
+          hidden: false
+        },
+        {
+          label: "Humidité",
+          data: [],
+          parsing: false,
+          borderColor: "#8b5cf6",
+          backgroundColor: "rgba(139,92,246,0.08)",
+          tension: 0.2,
+          borderWidth: 2,
+          yAxisID: "yTempHum",
+          hidden: false
+        }
+      ]
+    },
+    options: {
+      maintainAspectRatio: false,
+      animation: false,
+      responsive: true,
+      interaction: {
+        mode: "nearest",
+        axis: "x",
+        intersect: false
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        parsing: false, // on fournit {x, y}
-        spanGaps: false, // ne pas relier à travers les trous (NaN)
-        interaction: {
-          mode: "nearest",
-          intersect: false,
-        },
-        scales: {
-          x: {
-            type: "time",
-            time: {
-              unit: "hour",
-              tooltipFormat: "dd/MM/yyyy HH:mm",
-            },
-            ticks: {
-              source: "auto",
-            },
+      scales: {
+        x: {
+          type: "time",
+          time: {
+            tooltipFormat: "dd/MM/yyyy HH:mm",
+            displayFormats: {
+              minute: "HH:mm",
+              hour: "HH:mm",
+              day: "dd/MM"
+            }
           },
-          y: {
-            beginAtZero: true,
+          ticks: {
+            maxRotation: 0,
+            autoSkip: true
           },
+          grid: {
+            color: "rgba(148,163,184,0.2)"
+          }
         },
-        plugins: {
-          legend: {
+        y: {
+          position: "left",
+          title: {
             display: true,
+            text: "Particules (µg/m³)"
           },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const v = ctx.parsed.y;
-                if (v == null || Number.isNaN(v)) return `${ctx.dataset.label}: --`;
-                return `${ctx.dataset.label}: ${v.toFixed(2)}`;
-              },
-            },
-          },
+          grid: {
+            color: "rgba(148,163,184,0.2)"
+          }
         },
+        yTempHum: {
+          position: "right",
+          title: {
+            display: true,
+            text: "Température / Humidité"
+          },
+          grid: {
+            drawOnChartArea: false
+          }
+        }
       },
-    });
-  } else {
-    console.error("[NebuleAir] Canvas ou Chart.js manquant");
-  }
+      plugins: {
+        legend: {
+          display: true,
+          labels: {
+            usePointStyle: true
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const value = ctx.parsed.y;
+              if (value == null) return ctx.dataset.label + " : --";
+              return ctx.dataset.label + " : " + value.toFixed(2);
+            }
+          }
+        }
+      }
+    }
+  });
 
-  function applySeriesToChart() {
-    if (!mainChart) return;
+  function updateChartDatasets() {
+    const labels = labelsRaw;
 
-    const map = {
-      pm1: "pm1",
-      pm25: "pm25",
-      pm10: "pm10",
-      temperature: "temperature",
-      humidite: "humidite",
-    };
+    function buildData(arr) {
+      return labels.map((t, idx) => {
+        const v = arr[idx];
+        return v == null ? { x: t, y: null } : { x: t, y: v };
+      });
+    }
 
-    mainChart.data.datasets.forEach((ds) => {
-      const key = map[ds.id];
-      ds.data = key ? series[key] : [];
-    });
-
-    // visibilité selon les cases à cocher
-    mainChart.data.datasets.forEach((ds) => {
-      if (ds.id === "pm1") ds.hidden = !pm1Toggle.checked;
-      if (ds.id === "pm25") ds.hidden = !pm25Toggle.checked;
-      if (ds.id === "pm10") ds.hidden = !pm10Toggle.checked;
-      if (ds.id === "temperature") ds.hidden = !tempToggle.checked;
-      if (ds.id === "humidite") ds.hidden = !humToggle.checked;
-    });
+    mainChart.data.datasets[0].data = buildData(series.pm1);
+    mainChart.data.datasets[1].data = buildData(series.pm25);
+    mainChart.data.datasets[2].data = buildData(series.pm10);
+    mainChart.data.datasets[3].data = buildData(series.temperature);
+    mainChart.data.datasets[4].data = buildData(series.humidite);
 
     mainChart.update();
   }
 
   // ============================
-  //  FETCH INFLUX
+  //  FETCH DONNÉES INFLUX
   // ============================
 
-  function buildRangePayload() {
-    if (customRange && customRange.start && customRange.end) {
-      return {
-        mode: "custom",
-        start: customRange.start.toISOString(),
-        end: customRange.end.toISOString(),
-      };
-    }
-    // on garde un truc simple pour le proxy : -1h, -6h, etc.
-    return { mode: "relative", range: currentRange };
-  }
-
-  async function fetchDataAndUpdate() {
-    console.log("[NebuleAir] Fetch Influx…");
-
-    labelsRaw = [];
-    series = {
-      pm1: [],
-      pm25: [],
-      pm10: [],
-      temperature: [],
-      humidite: [],
+  function makeRequestPayload() {
+    const payload = {
+      bucket: BUCKET,
+      // pour Node-RED : soit "relative" + window, soit "absolute" + dates
+      range: {
+        mode: "relative",
+        window: currentRange
+      }
     };
 
-    try {
-      const payload = {
-        bucket: BUCKET,
-        range: buildRangePayload(),
+    if (customRange && customRange.start && customRange.end) {
+      payload.range = {
+        mode: "absolute",
+        start: customRange.start,
+        end: customRange.end
       };
+    }
 
-      const res = await fetch(INFLUX_URL, {
+    return payload;
+  }
+
+  function safeNumber(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function parseInfluxResponse(json) {
+    // Cette fonction essaye plusieurs formats possibles pour être robuste.
+
+    console.log("[NebuleAir] Réponse Influx brute :", json);
+
+    labelsRaw = [];
+    series.pm1 = [];
+    series.pm25 = [];
+    series.pm10 = [];
+    series.temperature = [];
+    series.humidite = [];
+    series.wifi = [];
+
+    // ---- Format 1 : { labels:[], pm1:[], ... } ----
+    if (Array.isArray(json.labels)) {
+      labelsRaw = json.labels.map(t => new Date(t));
+      ["pm1", "pm25", "pm10", "temperature", "humidite", "wifi"].forEach((k) => {
+        if (Array.isArray(json[k])) {
+          series[k] = json[k].map(safeNumber);
+        }
+      });
+      return;
+    }
+
+    // ---- Format 2 : { rows:[{time, pm1,...}, ...] } ----
+    if (Array.isArray(json.rows)) {
+      labelsRaw = json.rows.map(r => new Date(r.time));
+      json.rows.forEach(r => {
+        series.pm1.push(safeNumber(r.pm1));
+        series.pm25.push(safeNumber(r.pm25));
+        series.pm10.push(safeNumber(r.pm10));
+        series.temperature.push(safeNumber(r.temperature));
+        series.humidite.push(safeNumber(r.humidite));
+        series.wifi.push(safeNumber(r.wifi));
+      });
+      return;
+    }
+
+    // ---- Format 3 : tableau direct de points ----
+    if (Array.isArray(json)) {
+      labelsRaw = json.map(r => new Date(r.time));
+      json.forEach(r => {
+        series.pm1.push(safeNumber(r.pm1));
+        series.pm25.push(safeNumber(r.pm25));
+        series.pm10.push(safeNumber(r.pm10));
+        series.temperature.push(safeNumber(r.temperature));
+        series.humidite.push(safeNumber(r.humidite));
+        series.wifi.push(safeNumber(r.wifi));
+      });
+      return;
+    }
+
+    console.warn("[NebuleAir] Format de réponse Influx inconnu, aucune donnée parsée.");
+  }
+
+  async function loadData() {
+    try {
+      const payload = makeRequestPayload();
+      console.log("[NebuleAir] Requête Influx : ", payload);
+
+      const resp = await fetch(INFLUX_URL, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok) {
-        console.error("[NebuleAir] Erreur HTTP Influx:", res.status, res.statusText);
-        applySeriesToChart();
+      if (!resp.ok) {
+        console.error("[NebuleAir] Erreur HTTP Influx :", resp.status, resp.statusText);
         return;
       }
 
-      const json = await res.json();
-      // On essaye d'être tolérant sur la forme de la réponse
-      const points = json.points || json.data || [];
+      const json = await resp.json();
 
-      points.forEach((p) => {
-        const tRaw = p.time || p._time || p.timestamp || p.date;
-        const t = tRaw ? new Date(tRaw) : null;
-        if (!t || Number.isNaN(t.getTime())) return;
-
-        labelsRaw.push(t);
-
-        function push(fieldName, key) {
-          const v = Number(p[key]);
-          const y = Number.isFinite(v) ? v : NaN;
-          series[fieldName].push({ x: t, y });
-        }
-
-        push("pm1", "pm1");
-        push("pm25", "pm25");
-        push("pm10", "pm10");
-        push("temperature", "temperature");
-        push("humidite", "humidite");
-      });
-
-      // valeurs instantanées (dernier point)
-      const last =
-        json.last ||
-        (points.length > 0 ? points[points.length - 1] : null);
-
-      if (last) {
-        if (pm1Span && last.pm1 != null) pm1Span.textContent = Number(last.pm1).toFixed(1);
-        if (pm25Span && last.pm25 != null) pm25Span.textContent = Number(last.pm25).toFixed(1);
-        if (pm10Span && last.pm10 != null) pm10Span.textContent = Number(last.pm10).toFixed(1);
-        if (tempSpan && last.temperature != null) tempSpan.textContent = Number(last.temperature).toFixed(1);
-        if (humSpan && last.humidite != null) humSpan.textContent = Number(last.humidite).toFixed(1);
-
-        // RSSI potentiellement rssi ou wifi_rssi
-        const rssi = last.rssi ?? last.wifi_rssi ?? last.wifi;
-        if (wifiSpan && rssi != null) wifiSpan.textContent = rssi.toString();
-      }
-
-      applySeriesToChart();
+      parseInfluxResponse(json);
+      updateChartDatasets();
+      updateLiveCards();
     } catch (err) {
-      console.error("[NebuleAir] Erreur fetch Influx:", err);
-      applySeriesToChart(); // au moins on affiche un graph vide
+      console.error("[NebuleAir] Erreur fetch Influx :", err);
     }
+  }
+
+  function lastNonNull(arr) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i] != null && Number.isFinite(arr[i])) return arr[i];
+    }
+    return null;
+  }
+
+  function updateLiveCards() {
+    const lastPm1  = lastNonNull(series.pm1);
+    const lastPm25 = lastNonNull(series.pm25);
+    const lastPm10 = lastNonNull(series.pm10);
+    const lastT    = lastNonNull(series.temperature);
+    const lastH    = lastNonNull(series.humidite);
+    const lastWifi = lastNonNull(series.wifi);
+
+    pm1ValueEl.textContent  = lastPm1  != null ? lastPm1.toFixed(1)  : "--";
+    pm25ValueEl.textContent = lastPm25 != null ? lastPm25.toFixed(1) : "--";
+    pm10ValueEl.textContent = lastPm10 != null ? lastPm10.toFixed(1) : "--";
+    tempValueEl.textContent = lastT    != null ? lastT.toFixed(1)    : "--";
+    humValueEl.textContent  = lastH    != null ? lastH.toFixed(0)    : "--";
+    wifiValueEl.textContent = lastWifi != null ? lastWifi.toFixed(0) : "--";
   }
 
   // ============================
   //  GESTION DES FILTRES
   // ============================
 
-  if (pm1Toggle && pm25Toggle && pm10Toggle && tempToggle && humToggle) {
-    [pm1Toggle, pm25Toggle, pm10Toggle, tempToggle, humToggle].forEach((checkbox) => {
-      checkbox.addEventListener("change", () => {
-        applySeriesToChart();
-      });
-    });
+  function syncTogglesWithChart() {
+    if (pm1Toggle)  mainChart.data.datasets[0].hidden = !pm1Toggle.checked;
+    if (pm25Toggle) mainChart.data.datasets[1].hidden = !pm25Toggle.checked;
+    if (pm10Toggle) mainChart.data.datasets[2].hidden = !pm10Toggle.checked;
+    if (tempToggle) mainChart.data.datasets[3].hidden = !tempToggle.checked;
+    if (humToggle)  mainChart.data.datasets[4].hidden = !humToggle.checked;
+    mainChart.update();
   }
 
-  if (rangeButtons.length > 0) {
-    rangeButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        rangeButtons.forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        currentRange = btn.dataset.range || "1h";
-        customRange = null;
-        if (startDateInput) startDateInput.value = "";
-        if (endDateInput) endDateInput.value = "";
-        fetchDataAndUpdate();
-      });
+  [pm1Toggle, pm25Toggle, pm10Toggle, tempToggle, humToggle].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("change", () => {
+      syncTogglesWithChart();
     });
-  }
+  });
+
+  rangeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      rangeButtons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentRange = btn.dataset.range;
+      customRange = null;
+      if (startDateInput) startDateInput.value = "";
+      if (endDateInput) endDateInput.value = "";
+      loadData();
+    });
+  });
 
   if (applyRangeBtn) {
     applyRangeBtn.addEventListener("click", () => {
-      if (!startDateInput || !endDateInput) return;
-
-      const s = startDateInput.value;
-      const e = endDateInput.value;
-      if (!s || !e) return;
-
-      const start = new Date(s + "T00:00:00");
-      const end = new Date(e + "T23:59:59");
-
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        console.warn("[NebuleAir] Dates invalides pour la plage personnalisée");
+      if (!startDateInput.value || !endDateInput.value) {
+        alert("Merci de sélectionner une date de début et une date de fin.");
         return;
       }
+      const startISO = new Date(startDateInput.value + "T00:00:00").toISOString();
+      const endISO = new Date(endDateInput.value + "T23:59:59").toISOString();
 
-      customRange = { start, end };
-      currentRange = ""; // plus de range relative
+      customRange = { start: startISO, end: endISO };
       rangeButtons.forEach((b) => b.classList.remove("active"));
+      currentRange = "custom";
 
-      fetchDataAndUpdate();
+      loadData();
     });
   }
 
   if (resetZoomBtn) {
     resetZoomBtn.addEventListener("click", () => {
-      // sans plugin de zoom : on se contente de recharger les données
-      fetchDataAndUpdate();
+      // Pas de plugin zoom : on réinitialise juste les limites
+      mainChart.options.scales.x.min = undefined;
+      mainChart.options.scales.x.max = undefined;
+      mainChart.update();
     });
   }
 
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener("click", () => {
-      if (labelsRaw.length === 0) return;
-
-      let csv = "time;pm1;pm25;pm10;temperature;humidite\n";
-
-      for (let i = 0; i < labelsRaw.length; i++) {
-        const t = labelsRaw[i].toISOString();
-
-        function val(arr) {
-          const p = arr[i];
-          if (!p || p.y == null || Number.isNaN(p.y)) return "";
-          return String(p.y);
-        }
-
-        csv += [
-          t,
-          val(series.pm1),
-          val(series.pm25),
-          val(series.pm10),
-          val(series.temperature),
-          val(series.humidite),
-        ].join(";") + "\n";
+      if (!labelsRaw.length) {
+        alert("Aucune donnée à exporter.");
+        return;
       }
+
+      let csv = "time,pm1,pm25,pm10,temperature,humidite,wifi\n";
+      labelsRaw.forEach((date, idx) => {
+        const line = [
+          date.toISOString(),
+          series.pm1[idx] ?? "",
+          series.pm25[idx] ?? "",
+          series.pm10[idx] ?? "",
+          series.temperature[idx] ?? "",
+          series.humidite[idx] ?? "",
+          series.wifi[idx] ?? ""
+        ].join(",");
+        csv += line + "\n";
+      });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -364,28 +437,24 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ============================
-  //  INIT LEAFLET
+  //  LEAFLET – CARTE
   // ============================
 
   (function initMapNebuleAir() {
-    const mapElement = document.getElementById("map");
-    if (!mapElement) {
-      console.warn("[NebuleAir] Élément #map introuvable.");
-      return;
-    }
-    if (typeof L === "undefined") {
-      console.warn("[NebuleAir] Leaflet non chargé.");
-      return;
-    }
-
     const SENSOR_LAT = 43.305440952514594;
     const SENSOR_LON = 5.3948736958397765;
+
+    const mapElement = document.getElementById("map");
+    if (!mapElement) {
+      console.error("[NebuleAir] Élément #map introuvable.");
+      return;
+    }
 
     const map = L.map(mapElement).setView([SENSOR_LAT, SENSOR_LON], 16);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: "&copy; OpenStreetMap",
+      attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
     L.marker([SENSOR_LAT, SENSOR_LON])
@@ -398,145 +467,181 @@ document.addEventListener("DOMContentLoaded", () => {
   //  EASTER EGG : SNAKE
   // ============================
 
-  (function initSnake() {
-    const container = document.getElementById("snake-container");
-    const closeBtn = document.getElementById("snake-close");
-    const canvasSnake = document.getElementById("snake-canvas");
-    const scoreSpan = document.getElementById("snake-score-value");
+  const snakeContainer = document.getElementById("snake-container");
+  const snakeCanvas = document.getElementById("snake-canvas");
+  const snakeCloseBtn = document.getElementById("snake-close");
+  const snakeScoreSpan = document.getElementById("snake-score-value");
 
-    if (!container || !closeBtn || !canvasSnake || !scoreSpan) {
-      console.warn("[NebuleSnake] éléments manquants, jeu non initialisé.");
-      return;
+  let snakeCtx;
+  let snakeTimer = null;
+  let snakeDirection = "right";
+  let snakeBody = [];
+  let snakeFood = null;
+  let snakeScore = 0;
+  let keyBuffer = "";
+
+  function showSnake() {
+    if (!snakeContainer || !snakeCanvas) return;
+    snakeContainer.classList.remove("snake-hidden");
+    snakeContainer.classList.add("snake-visible");
+
+    snakeCtx = snakeCanvas.getContext("2d");
+    startSnakeGame();
+  }
+
+  function hideSnake() {
+    if (!snakeContainer) return;
+    snakeContainer.classList.remove("snake-visible");
+    snakeContainer.classList.add("snake-hidden");
+    if (snakeTimer) {
+      clearInterval(snakeTimer);
+      snakeTimer = null;
     }
+  }
 
-    const ctx = canvasSnake.getContext("2d");
-    const cellSize = 20;
-    const cells = canvasSnake.width / cellSize;
+  function startSnakeGame() {
+    const cols = 20;
+    const rows = 20;
+    const cellSize = snakeCanvas.width / cols;
 
-    let snake = [];
-    let direction = { x: 1, y: 0 };
-    let food = null;
-    let score = 0;
-    let loopId = null;
-
-    function resetGame() {
-      snake = [{ x: 10, y: 10 }];
-      direction = { x: 1, y: 0 };
-      score = 0;
-      scoreSpan.textContent = "0";
-      placeFood();
-    }
+    snakeBody = [
+      { x: 5, y: 10 },
+      { x: 4, y: 10 },
+      { x: 3, y: 10 }
+    ];
+    snakeDirection = "right";
+    snakeScore = 0;
+    if (snakeScoreSpan) snakeScoreSpan.textContent = "0";
 
     function placeFood() {
-      food = {
-        x: Math.floor(Math.random() * cells),
-        y: Math.floor(Math.random() * cells),
-      };
+      let fx, fy;
+      do {
+        fx = Math.floor(Math.random() * cols);
+        fy = Math.floor(Math.random() * rows);
+      } while (snakeBody.some(p => p.x === fx && p.y === fy));
+      snakeFood = { x: fx, y: fy };
     }
 
+    placeFood();
+
     function draw() {
-      ctx.fillStyle = "#020617";
-      ctx.fillRect(0, 0, canvasSnake.width, canvasSnake.height);
+      snakeCtx.fillStyle = "#f9fafb";
+      snakeCtx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
 
-      // food
-      ctx.fillStyle = "#22c55e";
-      ctx.fillRect(food.x * cellSize, food.y * cellSize, cellSize, cellSize);
+      // Food
+      if (snakeFood) {
+        snakeCtx.fillStyle = "#22c55e";
+        snakeCtx.fillRect(
+          snakeFood.x * cellSize,
+          snakeFood.y * cellSize,
+          cellSize,
+          cellSize
+        );
+      }
 
-      // snake
-      ctx.fillStyle = "#facc15";
-      snake.forEach((seg) => {
-        ctx.fillRect(seg.x * cellSize, seg.y * cellSize, cellSize, cellSize);
+      // Snake
+      snakeCtx.fillStyle = "#2563eb";
+      snakeBody.forEach((seg, idx) => {
+        snakeCtx.fillRect(
+          seg.x * cellSize,
+          seg.y * cellSize,
+          cellSize - (idx === 0 ? 2 : 4),
+          cellSize - (idx === 0 ? 2 : 4)
+        );
       });
     }
 
     function step() {
-      const head = {
-        x: snake[0].x + direction.x,
-        y: snake[0].y + direction.y,
-      };
+      const head = { ...snakeBody[0] };
+      if (snakeDirection === "right") head.x++;
+      if (snakeDirection === "left") head.x--;
+      if (snakeDirection === "up") head.y--;
+      if (snakeDirection === "down") head.y++;
 
       // murs
-      if (
-        head.x < 0 ||
-        head.x >= cells ||
-        head.y < 0 ||
-        head.y >= cells
-      ) {
-        resetGame();
-        return;
+      if (head.x < 0 || head.y < 0 || head.x >= cols || head.y >= rows) {
+        return gameOver();
       }
 
-      // auto-collision
-      if (snake.some((seg) => seg.x === head.x && seg.y === head.y)) {
-        resetGame();
-        return;
+      // self collision
+      if (snakeBody.some(seg => seg.x === head.x && seg.y === head.y)) {
+        return gameOver();
       }
 
-      snake.unshift(head);
+      snakeBody.unshift(head);
 
-      if (head.x === food.x && head.y === food.y) {
-        score += 1;
-        scoreSpan.textContent = String(score);
+      // food ?
+      if (snakeFood && head.x === snakeFood.x && head.y === snakeFood.y) {
+        snakeScore++;
+        if (snakeScoreSpan) snakeScoreSpan.textContent = snakeScore.toString();
         placeFood();
       } else {
-        snake.pop();
+        snakeBody.pop();
       }
 
       draw();
     }
 
-    function startGame() {
-      resetGame();
-      if (loopId) clearInterval(loopId);
-      loopId = setInterval(step, 120);
+    function gameOver() {
+      clearInterval(snakeTimer);
+      snakeTimer = null;
+      snakeCtx.fillStyle = "rgba(0,0,0,0.4)";
+      snakeCtx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
+      snakeCtx.fillStyle = "#ffffff";
+      snakeCtx.font = "20px system-ui";
+      snakeCtx.textAlign = "center";
+      snakeCtx.fillText("Game Over", snakeCanvas.width / 2, snakeCanvas.height / 2);
+      snakeCtx.fillText(
+        "Score : " + snakeScore,
+        snakeCanvas.width / 2,
+        snakeCanvas.height / 2 + 26
+      );
     }
 
-    function stopGame() {
-      if (loopId) clearInterval(loopId);
-    }
+    draw();
+    if (snakeTimer) clearInterval(snakeTimer);
+    snakeTimer = setInterval(step, 130);
+  }
 
-    function openSnake() {
-      container.classList.remove("snake-hidden");
-      startGame();
-    }
+  // Trigger : taper "snake"
+  document.addEventListener("keydown", (e) => {
+    const key = e.key.toLowerCase();
 
-    function closeSnake() {
-      container.classList.add("snake-hidden");
-      stopGame();
-    }
-
-    closeBtn.addEventListener("click", closeSnake);
-
-    // détection du mot "snake" tapé au clavier
-    let buffer = "";
-    const SECRET = "snake";
-
-    window.addEventListener("keydown", (e) => {
-      const key = e.key.toLowerCase();
-
-      // buffer pour détecter s-n-a-k-e
-      if (key.length === 1 && key >= "a" && key <= "z") {
-        buffer += key;
-        if (buffer.length > SECRET.length) {
-          buffer = buffer.slice(-SECRET.length);
-        }
-        if (buffer === SECRET) {
-          openSnake();
-        }
+    // Gestion du cheat code
+    if (/^[a-z0-9]$/.test(key)) {
+      keyBuffer += key;
+      if (keyBuffer.length > 5) {
+        keyBuffer = keyBuffer.slice(-5);
       }
-
-      // contrôle du serpent uniquement si le jeu est visible
-      if (!container.classList.contains("snake-hidden")) {
-        if (e.key === "ArrowUp" && direction.y !== 1) direction = { x: 0, y: -1 };
-        if (e.key === "ArrowDown" && direction.y !== -1) direction = { x: 0, y: 1 };
-        if (e.key === "ArrowLeft" && direction.x !== 1) direction = { x: -1, y: 0 };
-        if (e.key === "ArrowRight" && direction.x !== -1) direction = { x: 1, y: 0 };
+      if (keyBuffer === "snake") {
+        console.log("[NebuleAir] Easter Egg Snake activé !");
+        showSnake();
+        keyBuffer = "";
       }
+    } else if (key === "escape") {
+      keyBuffer = "";
+    }
+
+    // Contrôle du serpent
+    if (!snakeTimer) return;
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+      e.preventDefault();
+      if (key === "arrowup" && snakeDirection !== "down") snakeDirection = "up";
+      if (key === "arrowdown" && snakeDirection !== "up") snakeDirection = "down";
+      if (key === "arrowleft" && snakeDirection !== "right") snakeDirection = "left";
+      if (key === "arrowright" && snakeDirection !== "left") snakeDirection = "right";
+    }
+  });
+
+  if (snakeCloseBtn) {
+    snakeCloseBtn.addEventListener("click", () => {
+      hideSnake();
     });
-  })();
+  }
 
   // ============================
-  //  PREMIER CHARGEMENT
+  //  DÉMARRAGE
   // ============================
-  fetchDataAndUpdate();
+  syncTogglesWithChart();
+  loadData();
 });
