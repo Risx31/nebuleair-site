@@ -1,19 +1,19 @@
 // assets/js/dashboard.js
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
   console.log("[NebuleAir] Dashboard JS chargé");
 
-  // ============================
-  //  CONFIG GÉNÉRALE
-  // ============================
   const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
   const BUCKET = "Nodule Air";
 
-  let currentRange = "1h";       // 1h, 6h, 12h, 24h, 7d, 30d, custom
-  let customRange = null;        // { start: Date, end: Date }
+  let currentRange = "1h";
+  let customRange = null;
 
-  // Séries pour le graphique
-  const series = {
+  // Timestamps bruts (Date)
+  let labelsRaw = [];
+
+  // Séries de valeurs
+  let series = {
     pm1: [],
     pm25: [],
     pm10: [],
@@ -22,33 +22,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ============================
-  //  RÉFÉRENCES DOM
+  //  INIT CHART.JS
   // ============================
+
   const canvas = document.getElementById("mainChart");
   if (!canvas) {
     console.error("[NebuleAir] Canvas #mainChart introuvable");
     return;
   }
 
-  const rangeButtons = document.querySelectorAll("[data-range]");
-  const customStartInput = document.getElementById("custom-start");
-  const customEndInput = document.getElementById("custom-end");
-  const applyCustomBtn = document.getElementById("apply-custom-range");
-  const refreshBtn = document.getElementById("refresh-btn");
-
-  const pm1ValueEl = document.getElementById("pm1-value");
-  const pm25ValueEl = document.getElementById("pm25-value");
-  const pm10ValueEl = document.getElementById("pm10-value");
-  const tempValueEl = document.getElementById("temperature-value");
-  const humValueEl = document.getElementById("humidity-value");
-  const lastUpdateEl = document.getElementById("last-update-value");
-
-  const wifiValueEl = document.getElementById("wifi-value");
-  const wifiIconEl = document.getElementById("wifi-icon");
-
-  // ============================
-  //  INIT CHART.JS
-  // ============================
   const ctx = canvas.getContext("2d");
 
   const mainChart = new Chart(ctx, {
@@ -56,55 +38,53 @@ document.addEventListener("DOMContentLoaded", () => {
     data: {
       datasets: [
         {
-          label: "PM1 (µg/m³)",
+          label: "PM1",
           data: [],
-          borderWidth: 2,
           borderColor: "#007bff",
           backgroundColor: "rgba(0, 123, 255, 0.15)",
-          tension: 0.2,
-          pointRadius: 0,
+          borderWidth: 2,
+          tension: 0.25,
+          fill: true,
           spanGaps: false
         },
         {
-          label: "PM2.5 (µg/m³)",
+          label: "PM2.5",
           data: [],
+          borderColor: "#ff9800",
+          backgroundColor: "rgba(255, 152, 0, 0.15)",
           borderWidth: 2,
-          borderColor: "#28a745",
-          backgroundColor: "rgba(40, 167, 69, 0.15)",
-          tension: 0.2,
-          pointRadius: 0,
+          tension: 0.25,
+          fill: true,
           spanGaps: false
         },
         {
-          label: "PM10 (µg/m³)",
+          label: "PM10",
           data: [],
+          borderColor: "#e91e63",
+          backgroundColor: "rgba(233, 30, 99, 0.15)",
           borderWidth: 2,
-          borderColor: "#ffc107",
-          backgroundColor: "rgba(255, 193, 7, 0.15)",
-          tension: 0.2,
-          pointRadius: 0,
+          tension: 0.25,
+          fill: true,
           spanGaps: false
         },
         {
-          label: "Température (°C)",
+          label: "Température",
           data: [],
-          yAxisID: "y2",
+          borderColor: "#00c853",
+          backgroundColor: "rgba(0, 200, 83, 0.15)",
           borderWidth: 2,
-          borderColor: "#e83e8c",
-          backgroundColor: "rgba(232, 62, 140, 0.15)",
-          tension: 0.2,
-          pointRadius: 0,
+          tension: 0.25,
+          fill: true,
           spanGaps: false
         },
         {
-          label: "Humidité (%)",
+          label: "Humidité",
           data: [],
-          yAxisID: "y2",
+          borderColor: "#26c6da",
+          backgroundColor: "rgba(38, 198, 218, 0.15)",
           borderWidth: 2,
-          borderColor: "#17a2b8",
-          backgroundColor: "rgba(23, 162, 184, 0.15)",
-          tension: 0.2,
-          pointRadius: 0,
+          tension: 0.25,
+          fill: true,
           spanGaps: false
         }
       ]
@@ -113,53 +93,47 @@ document.addEventListener("DOMContentLoaded", () => {
       responsive: true,
       maintainAspectRatio: false,
       interaction: {
-        mode: "nearest",
+        mode: "index",
         intersect: false
-      },
-      scales: {
-        x: {
-          type: "time",
-          time: {
-            tooltipFormat: "dd/MM/yyyy HH:mm",
-            displayFormats: {
-              minute: "HH:mm",
-              hour: "dd/MM HH'h'",
-              day: "dd/MM"
-            }
-          },
-          ticks: {
-            source: "auto"
-          }
-        },
-        y: {
-          beginAtZero: false,
-          title: {
-            display: true,
-            text: "PM (µg/m³)"
-          }
-        },
-        y2: {
-          position: "right",
-          beginAtZero: false,
-          grid: {
-            drawOnChartArea: false
-          },
-          title: {
-            display: true,
-            text: "Temp (°C) / Humidité (%)"
-          }
-        }
       },
       plugins: {
         legend: {
-          position: "bottom"
+          position: "top",
+          labels: { usePointStyle: true }
         },
         tooltip: {
+          mode: "index",
+          intersect: false,
           callbacks: {
-            title: (items) => {
+            title: function (items) {
               if (!items.length) return "";
-              const d = items[0].parsed.x;
-              return new Date(d).toLocaleString("fr-FR");
+              const x = items[0].parsed.x;
+              return new Date(x).toLocaleString("fr-FR", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit"
+              });
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: "Valeur"
+          }
+        },
+        x: {
+          type: "time",
+          time: {
+            tooltipFormat: "dd MMM yyyy HH:mm",
+            displayFormats: {
+              minute: "HH:mm",
+              hour: "dd MMM HH'h'",
+              day: "dd MMM"
             }
           }
         }
@@ -168,277 +142,381 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ============================
-  //  INIT LEAFLET
+  //  HELPERS INFLUX
   // ============================
-  (function initMapNebuleAir() {
-    const mapElement = document.getElementById("map");
-    if (!mapElement || typeof L === "undefined") {
-      console.warn("[NebuleAir] Carte Leaflet non initialisée (pas de #map ou Leaflet).");
-      return;
+
+  function parseInfluxCsv(raw) {
+    const lines = raw
+      .split("\n")
+      .map(function (l) { return l.trim(); })
+      .filter(function (l) { return l !== "" && !l.startsWith("#"); });
+
+    if (lines.length < 2) {
+      console.warn("[NebuleAir] CSV vide ou incomplet");
+      return { labels: [], values: [] };
     }
 
-    // Coordonnées du capteur (à adapter si besoin)
-    const SENSOR_LAT = 43.305440952514594;
-    const SENSOR_LON = 5.3948736958397765;
+    const header = lines[0].split(",");
+    const timeIndex = header.indexOf("_time");
+    const valueIndex = header.indexOf("_value");
 
-    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 15);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
-
-    L.marker([SENSOR_LAT, SENSOR_LON])
-      .addTo(map)
-      .bindPopup("Capteur NebuleAir")
-      .openPopup();
-  })();
-
-  // ============================
-  //  OUTILS D'AFFICHAGE
-  // ============================
-  function setText(el, value, suffix = "") {
-    if (!el) return;
-    if (value === null || value === undefined || Number.isNaN(value)) {
-      el.textContent = "--";
-    } else {
-      el.textContent = `${value}${suffix}`;
-    }
-  }
-
-  function formatDateTime(isoString) {
-    if (!isoString) return "--";
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return "--";
-    return d.toLocaleString("fr-FR");
-  }
-
-  function updateWifiDisplay(rssi) {
-    if (!wifiValueEl) return;
-
-    if (typeof rssi !== "number" || Number.isNaN(rssi)) {
-      wifiValueEl.textContent = "--";
-      wifiValueEl.style.color = "";
-      if (wifiIconEl) wifiIconEl.style.opacity = "0.5";
-      return;
+    if (timeIndex === -1 || valueIndex === -1) {
+      console.warn("[NebuleAir] _time ou _value manquant dans l'en-tête", header);
+      return { labels: [], values: [] };
     }
 
-    wifiValueEl.textContent = `${rssi} dBm`;
+    const labels = [];
+    const values = [];
 
-    let color = "#dc3545"; // rouge par défaut (mauvais)
-    if (rssi > -60) {
-      color = "#28a745"; // très bon
-    } else if (rssi > -75) {
-      color = "#ffc107"; // moyen
-    }
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",");
+      if (cols.length <= Math.max(timeIndex, valueIndex)) continue;
 
-    wifiValueEl.style.color = color;
-    if (wifiIconEl) {
-      wifiIconEl.style.color = color;
-      wifiIconEl.style.opacity = "1";
-    }
-  }
+      const t = cols[timeIndex];
+      const v = parseFloat(cols[valueIndex]);
 
-  function setActiveRangeButton() {
-    rangeButtons.forEach((btn) => {
-      if (btn.dataset.range === currentRange) {
-        btn.classList.add("active");
-      } else {
-        btn.classList.remove("active");
+      if (!isNaN(v)) {
+        labels.push(t);
+        values.push(v);
       }
+    }
+
+    return { labels: labels, values: values };
+  }
+
+  function buildRangeClause() {
+    if (customRange) {
+      return "|> range(start: " + customRange.start + ", stop: " + customRange.stop + ")";
+    }
+
+    switch (currentRange) {
+      case "1h":  return "|> range(start: -1h)";
+      case "6h":  return "|> range(start: -6h)";
+      case "24h": return "|> range(start: -24h)";
+      case "7j":  return "|> range(start: -7d)";
+      case "30j": return "|> range(start: -30d)";
+      default:    return "|> range(start: -1h)";
+    }
+  }
+
+  function getWindowEvery() {
+    if (customRange) {
+      const start = new Date(customRange.start);
+      const stop = new Date(customRange.stop);
+      const hours = (stop - start) / 3600000;
+      if (hours <= 6) return "1m";
+      if (hours <= 24) return "5m";
+      if (hours <= 24 * 7) return "30m";
+      if (hours <= 24 * 30) return "1h";
+      return "6h";
+    }
+
+    switch (currentRange) {
+      case "1h":  return "1m";
+      case "6h":  return "2m";
+      case "24h": return "5m";
+      case "7j":  return "30m";
+      case "30j": return "1h";
+      default:    return "1m";
+    }
+  }
+
+  async function fetchField(field) {
+    const rangeClause = buildRangeClause();
+    const every = getWindowEvery();
+
+    const fluxQuery =
+`from(bucket: "${BUCKET}")
+  ${rangeClause}
+  |> filter(fn: (r) => r._measurement == "nebuleair")
+  |> filter(fn: (r) => r._field == "${field}")
+  |> aggregateWindow(every: ${every}, fn: mean, createEmpty: false)
+  |> yield()`;
+
+    const response = await fetch(INFLUX_URL, {
+      method: "POST",
+      body: fluxQuery
     });
+
+    const raw = await response.text();
+    return parseInfluxCsv(raw);
   }
 
   // ============================
-  //  CALCUL DES FENÊTRES DE TEMPS
+  //  MISE À JOUR UI
   // ============================
-  function getRangeQueryParams() {
-    const now = new Date();
 
-    if (currentRange === "custom" && customRange?.start && customRange?.end) {
-      return {
-        start: customRange.start.toISOString(),
-        stop: customRange.end.toISOString()
-      };
+  function updateCards() {
+    function setCard(id, arr, digits) {
+      if (digits === undefined) digits = 1;
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (!arr || arr.length === 0 || isNaN(arr[arr.length - 1])) {
+        el.textContent = "--";
+      } else {
+        el.textContent = arr[arr.length - 1].toFixed(digits);
+      }
     }
 
-    const params = { range: currentRange, now: now.toISOString() };
-    return params;
+    setCard("pm1-value", series.pm1, 1);
+    setCard("pm25-value", series.pm25, 1);
+    setCard("pm10-value", series.pm10, 1);
+    setCard("temp-value", series.temperature, 1);
+    setCard("hum-value", series.humidite, 0);
   }
 
   // ============================
-  //  RÉCUPÉRATION DES DONNÉES
+  //  GESTION DES TROUS (CAPTEUR DÉCONNECTÉ)
   // ============================
-  async function fetchData() {
-    try {
-      const params = getRangeQueryParams();
-      const urlParams = new URLSearchParams({ bucket: BUCKET });
 
-      // Soit on passe "range=1h", soit start/stop ISO
-      if (params.range) {
-        urlParams.set("range", params.range);
-      }
-      if (params.start) {
-        urlParams.set("start", params.start);
-      }
-      if (params.stop) {
-        urlParams.set("stop", params.stop);
-      }
+  function buildDatasetWithGaps(values) {
+    if (!labelsRaw.length) return [];
 
-      const url = `${INFLUX_URL}?${urlParams.toString()}`;
-      console.log("[NebuleAir] Requête vers", url);
+    // On estime le pas "normal" (médiane des écarts de temps)
+    const deltas = [];
+    for (let i = 1; i < labelsRaw.length; i++) {
+      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
+    }
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+    let step = 0;
+    if (deltas.length) {
+      deltas.sort(function (a, b) { return a - b; });
+      step = deltas[Math.floor(deltas.length / 2)];
+    }
 
-      const payload = await response.json();
-      console.log("[NebuleAir] Données reçues :", payload);
+    // Si deux points sont séparés de plus de 3× le pas normal,
+    // on considère que c'est une déconnexion.
+    const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
+    const data = [];
 
-      // On accepte plusieurs formats de payload par sécurité :
-      // 1) Tableau direct de mesures
-      // 2) Objet { data: [...] }
-      let rows = [];
-      if (Array.isArray(payload)) {
-        rows = payload;
-      } else if (payload && Array.isArray(payload.data)) {
-        rows = payload.data;
-      } else {
-        console.warn("[NebuleAir] Format de payload inattendu.");
-        rows = [];
+    for (let i = 0; i < labelsRaw.length; i++) {
+      const t = labelsRaw[i];
+      const v = values[i];
+
+      if (i > 0) {
+        const prevT = labelsRaw[i - 1];
+        const dt = t - prevT;
+
+        if (dt > threshold) {
+          // Point "trou" au milieu du gap pour casser la courbe
+          const mid = new Date(prevT.getTime() + dt / 2);
+          data.push({ x: mid, y: null });
+        }
       }
 
-      // On vide les séries
-      series.pm1.length = 0;
-      series.pm25.length = 0;
-      series.pm10.length = 0;
-      series.temperature.length = 0;
-      series.humidite.length = 0;
-
-      let lastRow = null;
-      let lastRssi = null;
-
-      rows.forEach((row) => {
-        const t = new Date(row.time || row._time);
-        if (Number.isNaN(t.getTime())) return;
-
-        // On suppose des colonnes type "pm1", "pm25", etc.
-        if (row.pm1 !== undefined && row.pm1 !== null) {
-          series.pm1.push({ x: t, y: Number(row.pm1) });
-        }
-        if (row.pm25 !== undefined && row.pm25 !== null) {
-          series.pm25.push({ x: t, y: Number(row.pm25) });
-        }
-        if (row.pm10 !== undefined && row.pm10 !== null) {
-          series.pm10.push({ x: t, y: Number(row.pm10) });
-        }
-        if (row.temperature !== undefined && row.temperature !== null) {
-          series.temperature.push({ x: t, y: Number(row.temperature) });
-        }
-        if (row.humidite !== undefined && row.humidite !== null) {
-          series.humidite.push({ x: t, y: Number(row.humidite) });
-        }
-
-        if (typeof row.rssi === "number") {
-          lastRssi = row.rssi;
-        }
-
-        lastRow = row;
+      data.push({
+        x: t,
+        y: (typeof v === "number" && !isNaN(v)) ? v : null
       });
+    }
 
-      // Mise à jour du graphique
-      mainChart.data.datasets[0].data = series.pm1;
-      mainChart.data.datasets[1].data = series.pm25;
-      mainChart.data.datasets[2].data = series.pm10;
-      mainChart.data.datasets[3].data = series.temperature;
-      mainChart.data.datasets[4].data = series.humidite;
-      mainChart.update();
+    return data;
+  }
 
-      // Cartes "valeur actuelle"
-      if (lastRow) {
-        setText(pm1ValueEl, lastRow.pm1, " µg/m³");
-        setText(pm25ValueEl, lastRow.pm25, " µg/m³");
-        setText(pm10ValueEl, lastRow.pm10, " µg/m³");
-        setText(tempValueEl, lastRow.temperature, " °C");
-        setText(humValueEl, lastRow.humidite, " %");
-        if (lastUpdateEl) {
-          const timeStr = lastRow.time || lastRow._time;
-          lastUpdateEl.textContent = formatDateTime(timeStr);
-        }
-      } else {
-        // Si aucune donnée
-        setText(pm1ValueEl, null);
-        setText(pm25ValueEl, null);
-        setText(pm10ValueEl, null);
-        setText(tempValueEl, null);
-        setText(humValueEl, null);
-        if (lastUpdateEl) lastUpdateEl.textContent = "--";
-      }
+  function updateChart() {
+    mainChart.data.datasets[0].data = buildDatasetWithGaps(series.pm1);
+    mainChart.data.datasets[1].data = buildDatasetWithGaps(series.pm25);
+    mainChart.data.datasets[2].data = buildDatasetWithGaps(series.pm10);
+    mainChart.data.datasets[3].data = buildDatasetWithGaps(series.temperature);
+    mainChart.data.datasets[4].data = buildDatasetWithGaps(series.humidite);
 
-      // Wifi (RSSI)
-      updateWifiDisplay(lastRssi);
+    mainChart.update();
+  }
 
+  // ============================
+  //  CHARGEMENT GLOBAL
+  // ============================
+
+  async function loadAllData() {
+    try {
+      const results = await Promise.all([
+        fetchField("pm1"),
+        fetchField("pm25"),
+        fetchField("pm10"),
+        fetchField("temperature"),
+        fetchField("humidite")
+      ]);
+
+      const pm1 = results[0];
+      const pm25 = results[1];
+      const pm10 = results[2];
+      const temp = results[3];
+      const hum = results[4];
+
+      // Timestamps de référence
+      labelsRaw = pm1.labels.map(function (t) { return new Date(t); });
+
+      series.pm1 = pm1.values;
+      series.pm25 = pm25.values;
+      series.pm10 = pm10.values;
+      series.temperature = temp.values;
+      series.humidite = hum.values;
+
+      updateCards();
+      updateChart();
     } catch (err) {
-      console.error("[NebuleAir] Erreur lors du fetch Influx :", err);
+      console.error("[NebuleAir] Erreur lors du chargement des données :", err);
     }
   }
 
   // ============================
-  //  GESTION DES ÉVÉNEMENTS
+  //  EVENTS – PLAGES DE TEMPS
   // ============================
-  rangeButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const r = btn.dataset.range;
-      if (!r) return;
-      currentRange = r;
-      setActiveRangeButton();
 
-      if (currentRange !== "custom") {
-        customRange = null;
-      }
-
-      fetchData();
+  const rangeButtons = document.querySelectorAll(".range-btn");
+  rangeButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentRange = btn.dataset.range;
+      customRange = null;
+      loadAllData();
     });
   });
 
-  if (applyCustomBtn && customStartInput && customEndInput) {
-    applyCustomBtn.addEventListener("click", () => {
-      const startVal = customStartInput.value;
-      const endVal = customEndInput.value;
+  const applyBtn = document.getElementById("apply-range");
+  if (applyBtn) {
+    applyBtn.addEventListener("click", function () {
+      const startInput = document.getElementById("start-date").value;
+      const endInput = document.getElementById("end-date").value;
 
-      if (!startVal || !endVal) {
-        alert("Merci de renseigner les deux dates pour le mode personnalisé.");
+      if (!startInput || !endInput) {
+        alert("Choisis une date de début et une date de fin.");
         return;
       }
 
-      const startDate = new Date(startVal);
-      const endDate = new Date(endVal);
+      const start = new Date(startInput + "T00:00:00Z");
+      const end = new Date(endInput + "T23:59:59Z");
 
-      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
-        alert("Plage de dates invalide.");
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+        alert("Vérifie tes dates (fin après début).");
         return;
       }
 
-      customRange = { start: startDate, end: endDate };
-      currentRange = "custom";
-      setActiveRangeButton();
-      fetchData();
-    });
-  }
+      customRange = {
+        start: start.toISOString(),
+        stop: end.toISOString()
+      };
 
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", () => {
-      fetchData();
+      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
+      loadAllData();
     });
   }
 
   // ============================
-  //  LANCEMENT INITIAL
+  //  EVENTS – VISIBILITÉ COURBES
   // ============================
-  setActiveRangeButton();
-  fetchData();
 
-  // Rafraîchir automatiquement toutes les minutes
-  setInterval(fetchData, 60_000);
+  function bindToggle(checkboxId, datasetIndex) {
+    const cb = document.getElementById(checkboxId);
+    if (!cb) return;
+    cb.addEventListener("change", function () {
+      const meta = mainChart.getDatasetMeta(datasetIndex);
+      meta.hidden = !cb.checked;
+      mainChart.update();
+    });
+  }
+
+  bindToggle("pm1-toggle", 0);
+  bindToggle("pm25-toggle", 1);
+  bindToggle("pm10-toggle", 2);
+  bindToggle("temp-toggle", 3);
+  bindToggle("hum-toggle", 4);
+
+  // ============================
+  //  RESET PLAGE
+  // ============================
+
+  const resetZoomBtn = document.getElementById("reset-zoom");
+  if (resetZoomBtn) {
+    resetZoomBtn.addEventListener("click", function () {
+      customRange = null;
+      currentRange = "1h";
+      rangeButtons.forEach(function (b) {
+        b.classList.toggle("active", b.dataset.range === "1h");
+      });
+      loadAllData();
+    });
+  }
+
+  // ============================
+  //  EXPORT CSV
+  // ============================
+
+  const exportBtn = document.getElementById("export-csv");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", function () {
+      if (!labelsRaw.length) {
+        alert("Pas de données à exporter.");
+        return;
+      }
+
+      let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
+      const len = labelsRaw.length;
+
+      for (let i = 0; i < len; i++) {
+        const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
+        const v1 = (series.pm1[i] !== undefined) ? series.pm1[i] : "";
+        const v2 = (series.pm25[i] !== undefined) ? series.pm25[i] : "";
+        const v3 = (series.pm10[i] !== undefined) ? series.pm10[i] : "";
+        const v4 = (series.temperature[i] !== undefined) ? series.temperature[i] : "";
+        const v5 = (series.humidite[i] !== undefined) ? series.humidite[i] : "";
+        csv += t + "," + v1 + "," + v2 + "," + v3 + "," + v4 + "," + v5 + "\n";
+      }
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "nebuleair_export.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // ============================
+  //  CARTE LEAFLET
+  // ============================
+
+  (function initMapNebuleAir() {
+    const SENSOR_LAT = 43.305440952514594;
+    const SENSOR_LON = 5.3948736958397765;
+
+    const mapElement = document.getElementById("map");
+    if (!mapElement) {
+      console.warn("[NebuleAir] #map introuvable");
+      return;
+    }
+
+    if (typeof L === "undefined") {
+      console.error("[NebuleAir] Leaflet (L) non défini");
+      mapElement.innerHTML =
+        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé.</p>";
+      return;
+    }
+
+    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
+    marker.bindPopup("<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949");
+  })();
+
+  // ============================
+  //  CHARGEMENT INITIAL
+  // ============================
+
+  rangeButtons.forEach(function (b) {
+    b.classList.toggle("active", b.dataset.range === "1h");
+  });
+
+  loadAllData();
+  setInterval(loadAllData, 60000);
 });
