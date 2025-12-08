@@ -317,7 +317,7 @@
       padding: 1.5rem 2rem;
       border-radius: 1.25rem;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-      width: min(90vw, 460px);
+      width: min(90vw, 520px);
     }
 
     .snake-header {
@@ -351,18 +351,87 @@
       color: #9ca3af;
     }
 
-    #snake-canvas {
+    #snakeCanvas {
       display: block;
       margin: 0.5rem auto 0.75rem;
       background: #020617;
       border-radius: 0.75rem;
     }
 
-    .snake-score {
-      margin: 0;
-      font-size: 0.95rem;
-      text-align: right;
+    .snake-scorebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
       color: #e5e7eb;
+      margin-bottom: 0.75rem;
+    }
+
+    .snake-scorebar span strong {
+      font-weight: 600;
+    }
+
+    .snake-leaderboards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .snake-leaderboard-card {
+      background: #020617;
+      border-radius: 0.75rem;
+      padding: 0.5rem 0.6rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    .snake-leaderboard-card h3 {
+      margin: 0 0 0.25rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .snake-leaderboard-card h3 span {
+      font-size: 0.7rem;
+      color: #9ca3af;
+      font-weight: 400;
+    }
+
+    .snake-leaderboard-card table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+      color: #cbd5f5;
+    }
+
+    .snake-leaderboard-card th,
+    .snake-leaderboard-card td {
+      padding: 2px 3px;
+      text-align: left;
+    }
+
+    .snake-leaderboard-card th {
+      font-weight: 500;
+      color: #9ca3af;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.65);
+    }
+
+    .snake-leaderboard-card tbody tr:nth-child(odd) {
+      background: rgba(15, 23, 42, 0.7);
+    }
+
+    .snake-leaderboard-card tbody tr:nth-child(even) {
+      background: transparent;
+    }
+
+    @media (max-width: 600px) {
+      .snake-leaderboards {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -375,11 +444,48 @@
         <button id="snake-close">&times;</button>
       </div>
       <p class="snake-subtitle">
-        Tu as tapé "snake", tu as débloqué le mode serpent.
-        <br>Flèches du clavier pour jouer.
+        Tu as tapé "snake", tu as débloqué le mode serpent.<br>
+        Flèches / ZQSD pour bouger &nbsp;•&nbsp; 1 = lent, 2 = normal, 3 = rapide.
       </p>
-      <canvas id="snake-canvas" width="400" height="400"></canvas>
-      <p class="snake-score">Score : <span id="snake-score-value">0</span></p>
+
+      <canvas id="snakeCanvas" width="400" height="400"></canvas>
+
+      <div class="snake-scorebar">
+        <span>Vitesse : <strong id="snake-speed-label">Normal</strong></span>
+        <span>Score : <strong id="snake-score-current">0</strong></span>
+      </div>
+
+      <div class="snake-leaderboards">
+        <div class="snake-leaderboard-card">
+          <h3>Lent <span>Top 10</span></h3>
+          <table>
+            <thead>
+              <tr><th>#</th><th>Nom</th><th>Score</th></tr>
+            </thead>
+            <tbody id="snake-highscores-lent"></tbody>
+          </table>
+        </div>
+
+        <div class="snake-leaderboard-card">
+          <h3>Normal <span>Top 10</span></h3>
+          <table>
+            <thead>
+              <tr><th>#</th><th>Nom</th><th>Score</th></tr>
+            </thead>
+            <tbody id="snake-highscores-normal"></tbody>
+          </table>
+        </div>
+
+        <div class="snake-leaderboard-card">
+          <h3>Rapide <span>Top 10</span></h3>
+          <table>
+            <thead>
+              <tr><th>#</th><th>Nom</th><th>Score</th></tr>
+            </thead>
+            <tbody id="snake-highscores-rapide"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -511,11 +617,10 @@
     crossorigin="">
   </script>
 
-<!-- JS principal du dashboard -->
-<script src="assets/js/dashboard.js"></script>
+  <!-- JS principal du dashboard -->
+  <script src="assets/js/dashboard.js"></script>
 
-<!-- JS de l'easter egg Snake -->
-<script src="assets/js/snake.js"></script>
+  <!-- JS de l'easter egg Snake -->
+  <script src="assets/js/snake.js"></script>
 </body>
 </html>
-
