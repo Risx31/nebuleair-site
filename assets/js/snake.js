@@ -1,5 +1,6 @@
 // assets/js/snake.js
 // NebuleAir Snake – avec classements & modes de vitesse
+const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
   "use strict";
