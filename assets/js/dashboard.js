@@ -1,90 +1,110 @@
 // assets/js/dashboard.js
+// Dashboard NebuleAir – version sans Snake 🐍🚫
 
-document.addEventListener("DOMContentLoaded", function () {
-  console.log("[NebuleAir] Dashboard JS chargé");
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("[NebuleAir] Dashboard JS chargé (version sans Snake)");
 
+  // =============================
+  //  CONFIG
+  // =============================
   const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
   const BUCKET = "Nodule Air";
 
+  // Plage de temps courante ("1h", "6h", "24h", "7d" ou "custom")
   let currentRange = "1h";
-  let customRange = null;
+  let customRange = null; // { start: Date, end: Date }
 
-  // Timestamps bruts (Date)
-  let labelsRaw = [];
+  // Données brutes
+  let rows = [];
 
-  // Séries de valeurs
-  let series = {
-    pm1: [],
-    pm25: [],
-    pm10: [],
-    temperature: [],
-    humidite: []
-  };
-
-  // ============================
-  //  INIT CHART.JS
-  // ============================
+  // =============================
+  //  RÉFÉRENCES DOM
+  // =============================
 
   const canvas = document.getElementById("mainChart");
   if (!canvas) {
     console.error("[NebuleAir] Canvas #mainChart introuvable");
     return;
   }
-
   const ctx = canvas.getContext("2d");
+
+  const rangeButtons = document.querySelectorAll("[data-range]");
+  const startInput = document.getElementById("range-start");
+  const endInput = document.getElementById("range-end");
+  const applyRangeBtn = document.getElementById("apply-range");
+
+  // Stats / cartes
+  const pm1Span = document.getElementById("pm1-value");
+  const pm25Span = document.getElementById("pm25-value");
+  const pm10Span = document.getElementById("pm10-value");
+  const tempSpan = document.getElementById("temp-value");
+  const humSpan = document.getElementById("hum-value");
+  const aqiSpan = document.getElementById("aqi-value");
+  const aqiLabelSpan = document.getElementById("aqi-label");
+  const wifiSpan = document.getElementById("wifi-value");
+  const uptimeSpan = document.getElementById("uptime-value");
+  const lastUpdateSpan = document.getElementById("last-update");
+
+  const themeToggle = document.getElementById("theme-toggle");
+
+  // =============================
+  //  THÈME CLAIR / SOMBRE
+  // =============================
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark");
+      document.body.classList.toggle("dark");
+    });
+  }
+
+  // =============================
+  //  INIT CHART.JS
+  // =============================
 
   const mainChart = new Chart(ctx, {
     type: "line",
     data: {
       datasets: [
         {
-          label: "PM1",
+          label: "PM1 (µg/m³)",
           data: [],
-          borderColor: "#007bff",
-          backgroundColor: "rgba(0, 123, 255, 0.15)",
           borderWidth: 2,
-          tension: 0.25,
-          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
           spanGaps: false
         },
         {
-          label: "PM2.5",
+          label: "PM2.5 (µg/m³)",
           data: [],
-          borderColor: "#ff9800",
-          backgroundColor: "rgba(255, 152, 0, 0.15)",
           borderWidth: 2,
-          tension: 0.25,
-          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
           spanGaps: false
         },
         {
-          label: "PM10",
+          label: "PM10 (µg/m³)",
           data: [],
-          borderColor: "#e91e63",
-          backgroundColor: "rgba(233, 30, 99, 0.15)",
           borderWidth: 2,
-          tension: 0.25,
-          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
           spanGaps: false
         },
         {
-          label: "Température",
+          label: "Température (°C)",
           data: [],
-          borderColor: "#00c853",
-          backgroundColor: "rgba(0, 200, 83, 0.15)",
           borderWidth: 2,
-          tension: 0.25,
-          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
+          yAxisID: "y2",
           spanGaps: false
         },
         {
-          label: "Humidité",
+          label: "Humidité (%)",
           data: [],
-          borderColor: "#26c6da",
-          backgroundColor: "rgba(38, 198, 218, 0.15)",
           borderWidth: 2,
-          tension: 0.25,
-          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
+          yAxisID: "y2",
           spanGaps: false
         }
       ]
@@ -92,48 +112,54 @@ document.addEventListener("DOMContentLoaded", function () {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      parsing: false, // on fournit {x, y}
       interaction: {
-        mode: "index",
+        mode: "nearest",
         intersect: false
       },
-      plugins: {
-        legend: {
-          position: "top",
-          labels: { usePointStyle: true }
-        },
-        tooltip: {
-          mode: "index",
-          intersect: false,
-          callbacks: {
-            title: function (items) {
-              if (!items.length) return "";
-              const x = items[0].parsed.x;
-              return new Date(x).toLocaleString("fr-FR", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit"
-              });
-            }
-          }
-        }
-      },
       scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: "Valeur"
-          }
-        },
         x: {
           type: "time",
           time: {
-            tooltipFormat: "dd MMM yyyy HH:mm",
+            tooltipFormat: "dd/MM/yyyy HH:mm",
             displayFormats: {
               minute: "HH:mm",
-              hour: "dd MMM HH'h'",
-              day: "dd MMM"
+              hour: "HH:mm",
+              day: "dd/MM"
+            }
+          },
+          ticks: {
+            maxRotation: 0
+          }
+        },
+        y: {
+          position: "left",
+          title: {
+            display: true,
+            text: "PM (µg/m³)"
+          }
+        },
+        y2: {
+          position: "right",
+          grid: {
+            drawOnChartArea: false
+          },
+          title: {
+            display: true,
+            text: "Temp / Hum"
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: "bottom"
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              if (!items.length) return "";
+              const d = items[0].parsed.x;
+              return new Date(d).toLocaleString("fr-FR");
             }
           }
         }
@@ -141,382 +167,256 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // ============================
-  //  HELPERS INFLUX
-  // ============================
+  // =============================
+  //  LEAFLET – CARTE CAPTEUR
+  // =============================
 
-  function parseInfluxCsv(raw) {
-    const lines = raw
-      .split("\n")
-      .map(function (l) { return l.trim(); })
-      .filter(function (l) { return l !== "" && !l.startsWith("#"); });
-
-    if (lines.length < 2) {
-      console.warn("[NebuleAir] CSV vide ou incomplet");
-      return { labels: [], values: [] };
+  (function initMapNebuleAir() {
+    const mapElement = document.getElementById("map");
+    if (!mapElement) {
+      console.warn("[NebuleAir] #map introuvable, la carte ne sera pas affichée");
+      return;
     }
 
-    const header = lines[0].split(",");
-    const timeIndex = header.indexOf("_time");
-    const valueIndex = header.indexOf("_value");
+    // Coordonnées par défaut (IUT St Jérôme par ex.)
+    const SENSOR_LAT = 43.305440952514594;
+    const SENSOR_LON = 5.3948736958397765;
 
-    if (timeIndex === -1 || valueIndex === -1) {
-      console.warn("[NebuleAir] _time ou _value manquant dans l'en-tête", header);
-      return { labels: [], values: [] };
-    }
+    const map = L.map(mapElement).setView([SENSOR_LAT, SENSOR_LON], 16);
 
-    const labels = [];
-    const values = [];
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
 
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(",");
-      if (cols.length <= Math.max(timeIndex, valueIndex)) continue;
+    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
+    marker.bindPopup("Capteur NebuleAir<br>Qualité de l'air en temps (quasi) réel");
+  })();
 
-      const t = cols[timeIndex];
-      const v = parseFloat(cols[valueIndex]);
+  // =============================
+  //  UTILITAIRES
+  // =============================
 
-      if (!isNaN(v)) {
-        labels.push(t);
-        values.push(v);
-      }
-    }
-
-    return { labels: labels, values: values };
+  function formatDateTime(isoString) {
+    if (!isoString) return "--";
+    const d = new Date(isoString);
+    return d.toLocaleString("fr-FR");
   }
 
-  function buildRangeClause() {
-    if (customRange) {
-      return "|> range(start: " + customRange.start + ", stop: " + customRange.stop + ")";
-    }
+  function computeAQI(pm25) {
+    // Version simplifiée, juste pour donner une idée
+    if (pm25 == null || isNaN(pm25)) return { value: "--", label: "N/A", className: "" };
 
-    switch (currentRange) {
-      case "1h":  return "|> range(start: -1h)";
-      case "6h":  return "|> range(start: -6h)";
-      case "24h": return "|> range(start: -24h)";
-      case "7j":  return "|> range(start: -7d)";
-      case "30j": return "|> range(start: -30d)";
-      default:    return "|> range(start: -1h)";
-    }
+    if (pm25 <= 10) return { value: pm25.toFixed(1), label: "Excellent", className: "aqi-good" };
+    if (pm25 <= 20) return { value: pm25.toFixed(1), label: "Bon", className: "aqi-fair" };
+    if (pm25 <= 25) return { value: pm25.toFixed(1), label: "Moyen", className: "aqi-moderate" };
+    if (pm25 <= 50) return { value: pm25.toFixed(1), label: "Médiocre", className: "aqi-poor" };
+    return { value: pm25.toFixed(1), label: "Très mauvais", className: "aqi-very-poor" };
   }
 
-  function getWindowEvery() {
-    if (customRange) {
-      const start = new Date(customRange.start);
-      const stop = new Date(customRange.stop);
-      const hours = (stop - start) / 3600000;
-      if (hours <= 6) return "1m";
-      if (hours <= 24) return "5m";
-      if (hours <= 24 * 7) return "30m";
-      if (hours <= 24 * 30) return "1h";
-      return "6h";
-    }
-
-    switch (currentRange) {
-      case "1h":  return "1m";
-      case "6h":  return "2m";
-      case "24h": return "5m";
-      case "7j":  return "30m";
-      case "30j": return "1h";
-      default:    return "1m";
-    }
+  function secondsToHuman(sec) {
+    if (!sec || sec < 0) return "--";
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return `${d} j ${h} h`;
+    if (h > 0) return `${h} h ${m} min`;
+    return `${m} min`;
   }
 
-  async function fetchField(field) {
-    const rangeClause = buildRangeClause();
-    const every = getWindowEvery();
+  // =============================
+  //  RÉCUP DATA INFUX
+  // =============================
 
-    const fluxQuery =
-`from(bucket: "${BUCKET}")
-  ${rangeClause}
-  |> filter(fn: (r) => r._measurement == "nebuleair")
-  |> filter(fn: (r) => r._field == "${field}")
-  |> aggregateWindow(every: ${every}, fn: mean, createEmpty: false)
-  |> yield()`;
+  async function fetchData() {
+    try {
+      const payload = {
+        bucket: BUCKET,
+        range: currentRange
+      };
 
-    const response = await fetch(INFLUX_URL, {
-      method: "POST",
-      body: fluxQuery
-    });
-
-    const raw = await response.text();
-    return parseInfluxCsv(raw);
-  }
-
-  // ============================
-  //  MISE À JOUR UI
-  // ============================
-
-  function updateCards() {
-    function setCard(id, arr, digits) {
-      if (digits === undefined) digits = 1;
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (!arr || arr.length === 0 || isNaN(arr[arr.length - 1])) {
-        el.textContent = "--";
-      } else {
-        el.textContent = arr[arr.length - 1].toFixed(digits);
-      }
-    }
-
-    setCard("pm1-value", series.pm1, 1);
-    setCard("pm25-value", series.pm25, 1);
-    setCard("pm10-value", series.pm10, 1);
-    setCard("temp-value", series.temperature, 1);
-    setCard("hum-value", series.humidite, 0);
-  }
-
-  // ============================
-  //  GESTION DES TROUS (CAPTEUR DÉCONNECTÉ)
-  // ============================
-
-  function buildDatasetWithGaps(values) {
-    if (!labelsRaw.length) return [];
-
-    // On estime le pas "normal" (médiane des écarts de temps)
-    const deltas = [];
-    for (let i = 1; i < labelsRaw.length; i++) {
-      deltas.push(labelsRaw[i] - labelsRaw[i - 1]); // en ms
-    }
-
-    let step = 0;
-    if (deltas.length) {
-      deltas.sort(function (a, b) { return a - b; });
-      step = deltas[Math.floor(deltas.length / 2)];
-    }
-
-    // Si deux points sont séparés de plus de 3× le pas normal,
-    // on considère que c'est une déconnexion.
-    const threshold = step ? step * 3 : Number.MAX_SAFE_INTEGER;
-    const data = [];
-
-    for (let i = 0; i < labelsRaw.length; i++) {
-      const t = labelsRaw[i];
-      const v = values[i];
-
-      if (i > 0) {
-        const prevT = labelsRaw[i - 1];
-        const dt = t - prevT;
-
-        if (dt > threshold) {
-          // Point "trou" au milieu du gap pour casser la courbe
-          const mid = new Date(prevT.getTime() + dt / 2);
-          data.push({ x: mid, y: null });
-        }
+      if (currentRange === "custom" && customRange && customRange.start && customRange.end) {
+        payload.start = customRange.start.toISOString();
+        payload.end = customRange.end.toISOString();
       }
 
-      data.push({
-        x: t,
-        y: (typeof v === "number" && !isNaN(v)) ? v : null
+      const resp = await fetch(INFLUX_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
       });
-    }
 
-    return data;
+      if (!resp.ok) {
+        console.error("[NebuleAir] Erreur HTTP Influx", resp.status, resp.statusText);
+        return [];
+      }
+
+      const json = await resp.json();
+      // On suppose que le proxy renvoie { data: [...] }
+      const data = Array.isArray(json.data) ? json.data : json;
+      console.log("[NebuleAir] Données reçues:", data.length, "points");
+      return data;
+    } catch (err) {
+      console.error("[NebuleAir] Erreur fetch Influx:", err);
+      return [];
+    }
   }
+
+  // =============================
+  //  MISE EN FORME & AFFICHAGE
+  // =============================
 
   function updateChart() {
-    mainChart.data.datasets[0].data = buildDatasetWithGaps(series.pm1);
-    mainChart.data.datasets[1].data = buildDatasetWithGaps(series.pm25);
-    mainChart.data.datasets[2].data = buildDatasetWithGaps(series.pm10);
-    mainChart.data.datasets[3].data = buildDatasetWithGaps(series.temperature);
-    mainChart.data.datasets[4].data = buildDatasetWithGaps(series.humidite);
+    const pm1Data = [];
+    const pm25Data = [];
+    const pm10Data = [];
+    const tempData = [];
+    const humData = [];
+
+    rows.forEach((p) => {
+      const t = new Date(p.time || p._time || p.timestamp);
+      if (isNaN(t.getTime())) return;
+
+      const pm1 = p.pm1 ?? p.pm_1 ?? null;
+      const pm25 = p.pm25 ?? p.pm_2_5 ?? null;
+      const pm10 = p.pm10 ?? p.pm_10 ?? null;
+      const temp = p.temperature ?? p.temp ?? null;
+      const hum = p.humidite ?? p.humidity ?? null;
+
+      pm1Data.push({ x: t, y: pm1 != null ? pm1 : null });
+      pm25Data.push({ x: t, y: pm25 != null ? pm25 : null });
+      pm10Data.push({ x: t, y: pm10 != null ? pm10 : null });
+      tempData.push({ x: t, y: temp != null ? temp : null });
+      humData.push({ x: t, y: hum != null ? hum : null });
+    });
+
+    mainChart.data.datasets[0].data = pm1Data;
+    mainChart.data.datasets[1].data = pm25Data;
+    mainChart.data.datasets[2].data = pm10Data;
+    mainChart.data.datasets[3].data = tempData;
+    mainChart.data.datasets[4].data = humData;
 
     mainChart.update();
   }
 
-  // ============================
-  //  CHARGEMENT GLOBAL
-  // ============================
-
-  async function loadAllData() {
-    try {
-      const results = await Promise.all([
-        fetchField("pm1"),
-        fetchField("pm25"),
-        fetchField("pm10"),
-        fetchField("temperature"),
-        fetchField("humidite")
-      ]);
-
-      const pm1 = results[0];
-      const pm25 = results[1];
-      const pm10 = results[2];
-      const temp = results[3];
-      const hum = results[4];
-
-      // Timestamps de référence
-      labelsRaw = pm1.labels.map(function (t) { return new Date(t); });
-
-      series.pm1 = pm1.values;
-      series.pm25 = pm25.values;
-      series.pm10 = pm10.values;
-      series.temperature = temp.values;
-      series.humidite = hum.values;
-
-      updateCards();
-      updateChart();
-    } catch (err) {
-      console.error("[NebuleAir] Erreur lors du chargement des données :", err);
-    }
-  }
-
-  // ============================
-  //  EVENTS – PLAGES DE TEMPS
-  // ============================
-
-  const rangeButtons = document.querySelectorAll(".range-btn");
-  rangeButtons.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
-      btn.classList.add("active");
-      currentRange = btn.dataset.range;
-      customRange = null;
-      loadAllData();
-    });
-  });
-
-  const applyBtn = document.getElementById("apply-range");
-  if (applyBtn) {
-    applyBtn.addEventListener("click", function () {
-      const startInput = document.getElementById("start-date").value;
-      const endInput = document.getElementById("end-date").value;
-
-      if (!startInput || !endInput) {
-        alert("Choisis une date de début et une date de fin.");
-        return;
-      }
-
-      const start = new Date(startInput + "T00:00:00Z");
-      const end = new Date(endInput + "T23:59:59Z");
-
-      if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
-        alert("Vérifie tes dates (fin après début).");
-        return;
-      }
-
-      customRange = {
-        start: start.toISOString(),
-        stop: end.toISOString()
-      };
-
-      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
-      loadAllData();
-    });
-  }
-
-  // ============================
-  //  EVENTS – VISIBILITÉ COURBES
-  // ============================
-
-  function bindToggle(checkboxId, datasetIndex) {
-    const cb = document.getElementById(checkboxId);
-    if (!cb) return;
-    cb.addEventListener("change", function () {
-      const meta = mainChart.getDatasetMeta(datasetIndex);
-      meta.hidden = !cb.checked;
-      mainChart.update();
-    });
-  }
-
-  bindToggle("pm1-toggle", 0);
-  bindToggle("pm25-toggle", 1);
-  bindToggle("pm10-toggle", 2);
-  bindToggle("temp-toggle", 3);
-  bindToggle("hum-toggle", 4);
-
-  // ============================
-  //  RESET PLAGE
-  // ============================
-
-  const resetZoomBtn = document.getElementById("reset-zoom");
-  if (resetZoomBtn) {
-    resetZoomBtn.addEventListener("click", function () {
-      customRange = null;
-      currentRange = "1h";
-      rangeButtons.forEach(function (b) {
-        b.classList.toggle("active", b.dataset.range === "1h");
-      });
-      loadAllData();
-    });
-  }
-
-  // ============================
-  //  EXPORT CSV
-  // ============================
-
-  const exportBtn = document.getElementById("export-csv");
-  if (exportBtn) {
-    exportBtn.addEventListener("click", function () {
-      if (!labelsRaw.length) {
-        alert("Pas de données à exporter.");
-        return;
-      }
-
-      let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
-      const len = labelsRaw.length;
-
-      for (let i = 0; i < len; i++) {
-        const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
-        const v1 = (series.pm1[i] !== undefined) ? series.pm1[i] : "";
-        const v2 = (series.pm25[i] !== undefined) ? series.pm25[i] : "";
-        const v3 = (series.pm10[i] !== undefined) ? series.pm10[i] : "";
-        const v4 = (series.temperature[i] !== undefined) ? series.temperature[i] : "";
-        const v5 = (series.humidite[i] !== undefined) ? series.humidite[i] : "";
-        csv += t + "," + v1 + "," + v2 + "," + v3 + "," + v4 + "," + v5 + "\n";
-      }
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "nebuleair_export.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  // ============================
-  //  CARTE LEAFLET
-  // ============================
-
-  (function initMapNebuleAir() {
-    const SENSOR_LAT = 43.305440952514594;
-    const SENSOR_LON = 5.3948736958397765;
-
-    const mapElement = document.getElementById("map");
-    if (!mapElement) {
-      console.warn("[NebuleAir] #map introuvable");
+  function updateStats() {
+    if (!rows.length) {
+      [pm1Span, pm25Span, pm10Span, tempSpan, humSpan, aqiSpan, aqiLabelSpan, wifiSpan, uptimeSpan, lastUpdateSpan]
+        .filter(Boolean)
+        .forEach((el) => (el.textContent = "--"));
       return;
     }
 
-    if (typeof L === "undefined") {
-      console.error("[NebuleAir] Leaflet (L) non défini");
-      mapElement.innerHTML =
-        "<p style='padding:8px;font-size:14px;'>Erreur : Leaflet n'est pas chargé.</p>";
-      return;
+    const last = rows[rows.length - 1];
+
+    const pm1 = last.pm1 ?? last.pm_1;
+    const pm25 = last.pm25 ?? last.pm_2_5;
+    const pm10 = last.pm10 ?? last.pm_10;
+    const temp = last.temperature ?? last.temp;
+    const hum = last.humidite ?? last.humidity;
+    const rssi = last.rssi;
+    const uptime_s = last.uptime_s ?? last.uptime;
+
+    if (pm1Span && pm1 != null) pm1Span.textContent = pm1.toFixed(1);
+    if (pm25Span && pm25 != null) pm25Span.textContent = pm25.toFixed(1);
+    if (pm10Span && pm10 != null) pm10Span.textContent = pm10.toFixed(1);
+    if (tempSpan && temp != null) tempSpan.textContent = temp.toFixed(1);
+    if (humSpan && hum != null) humSpan.textContent = hum.toFixed(1);
+
+    const aqi = computeAQI(pm25);
+    if (aqiSpan) aqiSpan.textContent = aqi.value;
+    if (aqiLabelSpan) {
+      aqiLabelSpan.textContent = aqi.label;
+      aqiLabelSpan.className = aqi.className || "";
     }
 
-    const map = L.map("map").setView([SENSOR_LAT, SENSOR_LON], 18);
+    if (wifiSpan && rssi != null) {
+      wifiSpan.textContent = rssi + " dBm";
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-    }).addTo(map);
+      // Code couleur simple
+      if (rssi > -60) {
+        wifiSpan.style.color = "#3cb371"; // bon
+      } else if (rssi > -75) {
+        wifiSpan.style.color = "#f0ad4e"; // moyen
+      } else {
+        wifiSpan.style.color = "#d9534f"; // mauvais
+      }
+    }
 
-    const marker = L.marker([SENSOR_LAT, SENSOR_LON]).addTo(map);
-    marker.bindPopup("<b>NebuleAir – Capteur extérieur</b><br>43.3054, 5.3949");
-  })();
+    if (uptimeSpan) {
+      uptimeSpan.textContent = secondsToHuman(uptime_s);
+    }
 
-  // ============================
-  //  CHARGEMENT INITIAL
-  // ============================
+    if (lastUpdateSpan) {
+      const t = last.time || last._time || last.timestamp;
+      lastUpdateSpan.textContent = formatDateTime(t);
+    }
+  }
 
-  rangeButtons.forEach(function (b) {
-    b.classList.toggle("active", b.dataset.range === "1h");
+  async function refreshDashboard() {
+    const data = await fetchData();
+    rows = data || [];
+    updateChart();
+    updateStats();
+  }
+
+  // =============================
+  //  GESTION DES PLAGES DE TEMPS
+  // =============================
+
+  function setActiveRangeButton() {
+    rangeButtons.forEach((btn) => {
+      const r = btn.dataset.range;
+      if (!r) return;
+      if (r === currentRange) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  }
+
+  rangeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const range = btn.dataset.range;
+      if (!range) return;
+
+      currentRange = range;
+      if (range !== "custom") {
+        customRange = null;
+      }
+      setActiveRangeButton();
+      refreshDashboard();
+    });
   });
 
-  loadAllData();
-  setInterval(loadAllData, 60000);
+  if (applyRangeBtn && startInput && endInput) {
+    applyRangeBtn.addEventListener("click", () => {
+      if (!startInput.value || !endInput.value) {
+        alert("Merci de renseigner les deux dates pour la plage personnalisée.");
+        return;
+      }
+      const start = new Date(startInput.value);
+      const end = new Date(endInput.value);
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
+        alert("Plage de dates invalide.");
+        return;
+      }
+      customRange = { start, end };
+      currentRange = "custom";
+      setActiveRangeButton();
+      refreshDashboard();
+    });
+  }
+
+  // =============================
+  //  BOOT
+  // =============================
+  setActiveRangeButton();
+  refreshDashboard();
+
+  // Refresh périodique (optionnel)
+  setInterval(refreshDashboard, 60_000); // toutes les minutes
 });
