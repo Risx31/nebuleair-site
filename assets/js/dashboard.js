@@ -516,6 +516,73 @@ document.addEventListener("DOMContentLoaded", function () {
   rangeButtons.forEach(function (b) {
     b.classList.toggle("active", b.dataset.range === "1h");
   });
+  
+  // ==============================
+//  EASTER EGG : MODE SNAKE
+// ==============================
+(function () {
+  const secret = "snake";
+  let buffer = "";
+
+  const snakeContainer = document.getElementById("snake-container");
+  const snakeClose = document.getElementById("snake-close");
+
+  function openSnake() {
+    if (!snakeContainer) return;
+
+    // Afficher l'overlay
+    snakeContainer.classList.remove("snake-hidden");
+
+    // Initialiser / relancer le jeu
+    if (window.NebuleAirSnake && typeof window.NebuleAirSnake.init === "function") {
+      window.NebuleAirSnake.init("snakeCanvas"); // ⚠ id du canvas
+    }
+  }
+
+  function closeSnake() {
+    if (!snakeContainer) return;
+    snakeContainer.classList.add("snake-hidden");
+  }
+
+  // Fermer au clic sur la croix
+  if (snakeClose) {
+    snakeClose.addEventListener("click", closeSnake);
+  }
+
+  // Détection du mot "snake" au clavier
+  document.addEventListener("keydown", (e) => {
+    // Si on tape dans un input / textarea, on ne déclenche pas l’easter egg
+    const active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
+      return;
+    }
+
+    // Échap = fermer
+    if (e.key === "Escape") {
+      closeSnake();
+      return;
+    }
+
+    const key = e.key.toLowerCase();
+
+    // On ne garde que les lettres simples
+    if (key.length === 1 && key.match(/[a-z]/)) {
+      buffer += key;
+
+      // On ne garde que les N dernières lettres
+      if (buffer.length > secret.length) {
+        buffer = buffer.slice(-secret.length);
+      }
+
+      // Si le buffer = "snake", on ouvre
+      if (buffer === secret) {
+        buffer = "";
+        openSnake();
+      }
+    }
+  });
+})();
+
 
   loadAllData();
   setInterval(loadAllData, 60000);
