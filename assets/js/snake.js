@@ -1,5 +1,5 @@
 // assets/js/snake.js
-// NebuleAir Snake – classements, vitesses & bonus
+// NebuleAir Snake – classements, vitesses, bonus & emojis
 const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
@@ -49,6 +49,19 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   const effectTimeouts = {
     turbo: null,
     doubleScore: null
+  };
+
+  // Emojis utilisés
+  const APPLE_EMOJIS = {
+    normal: "🍎",
+    golden: "🍏"  // pomme dorée / spéciale
+  };
+
+  const BONUS_EMOJIS = {
+    turbo: "⚡",    // Turbo contrôlé
+    double: "✨",   // Double Score
+    jackpot: "💰",  // Jackpot
+    slim: "✂️"      // Minceur express
   };
 
   // Classements (localStorage)
@@ -178,16 +191,25 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function spawnApple(type = "normal") {
     const pos = randomFreeCell();
+    let expiresAt = null;
+
+    // La pomme dorée disparaît au bout de ~6 s si on ne la mange pas
+    if (type === "golden") {
+      const lifetimeMs = 6000;
+      expiresAt = Date.now() + lifetimeMs;
+    }
+
     apples.push({
       x: pos.x,
       y: pos.y,
-      type
+      type,
+      expiresAt
     });
   }
 
   function spawnBonus(type) {
     const pos = randomFreeCell();
-    const lifetimeMs = 8000; // visible 8 s sur la map
+    const lifetimeMs = 5000; // visible 5 s sur la map
     bonusItems.push({
       x: pos.x,
       y: pos.y,
@@ -198,7 +220,6 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function maybeSpawnRareStuff() {
     // Appelé après chaque pomme mangée.
-    // On tire une seule fois, et on décide s'il se passe quelque chose.
     // Probabilités approx :
     // 1% pomme dorée, 2% turbo, 3% double, 4% jackpot, 5% slim.
     // Soit 1 + 2 + 3 + 4 + 5 = 15% au total max.
@@ -245,6 +266,13 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     if (!bonusItems.length) return;
     const now = Date.now();
     bonusItems = bonusItems.filter(b => b.expiresAt > now);
+  }
+
+  function cleanExpiredApples() {
+    if (!apples.length) return;
+    const now = Date.now();
+    // Seules les golden ont expiresAt, les normales restent
+    apples = apples.filter(a => !a.expiresAt || a.expiresAt > now);
   }
 
   // ==========================
@@ -467,7 +495,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       snake.pop();
     }
 
-    // On nettoie les bonus expirés
+    // Nettoyage des éléments expirés
+    cleanExpiredApples();
     cleanExpiredBonuses();
 
     draw();
@@ -524,47 +553,37 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function drawApples() {
     apples.forEach(a => {
-      if (a.type === "golden") {
-        ctx.fillStyle = "#facc15"; // jaune/or
-      } else {
-        ctx.fillStyle = "#ff4757"; // rouge
-      }
-      ctx.beginPath();
-      ctx.arc(
-        a.x * tileSize + tileSize / 2,
-        a.y * tileSize + tileSize / 2,
-        tileSize / 2 - 2,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
+      const emoji = APPLE_EMOJIS[a.type] || APPLE_EMOJIS.normal;
+      const fontSize = Math.floor(tileSize * 0.9);
+
+      ctx.save();
+      ctx.font = `${fontSize}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const cx = a.x * tileSize + tileSize / 2;
+      const cy = a.y * tileSize + tileSize / 2;
+
+      ctx.fillText(emoji, cx, cy);
+      ctx.restore();
     });
   }
 
   function drawBonuses() {
     bonusItems.forEach(b => {
-      switch (b.type) {
-        case "turbo":
-          ctx.fillStyle = "#f97316"; // orange
-          break;
-        case "double":
-          ctx.fillStyle = "#22c55e"; // vert
-          break;
-        case "jackpot":
-          ctx.fillStyle = "#eab308"; // jaune
-          break;
-        case "slim":
-          ctx.fillStyle = "#a855f7"; // violet
-          break;
-        default:
-          ctx.fillStyle = "#ffffff";
-      }
-      ctx.fillRect(
-        b.x * tileSize + 3,
-        b.y * tileSize + 3,
-        tileSize - 6,
-        tileSize - 6
-      );
+      const emoji = BONUS_EMOJIS[b.type] || "❓";
+      const fontSize = Math.floor(tileSize * 0.9);
+
+      ctx.save();
+      ctx.font = `${fontSize}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const cx = b.x * tileSize + tileSize / 2;
+      const cy = b.y * tileSize + tileSize / 2;
+
+      ctx.fillText(emoji, cx, cy);
+      ctx.restore();
     });
   }
 
@@ -584,6 +603,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     ctx.fillStyle = "#ff4757";
     ctx.font = "bold 28px sans-serif";
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 10);
 
     ctx.fillStyle = "#ffffff";
