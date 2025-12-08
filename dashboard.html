@@ -351,31 +351,55 @@
       color: #9ca3af;
     }
 
-    #snakeCanvas {
+    #snake-canvas {
       display: block;
       margin: 0.5rem auto 0.75rem;
       background: #020617;
       border-radius: 0.75rem;
     }
 
-    .snake-scorebar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.9rem;
+    .snake-score {
+      margin: 0.25rem 0 0.4rem;
+      font-size: 0.95rem;
       color: #e5e7eb;
-      margin-bottom: 0.75rem;
+      text-align: left;
     }
 
-    .snake-scorebar span strong {
-      font-weight: 600;
+    .snake-footer {
+      margin-top: 0.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+
+    .snake-speed {
+      opacity: 0.9;
+    }
+
+    .snake-achievements-btn {
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: transparent;
+      color: #e5e7eb;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .snake-achievements-btn:hover {
+      background: rgba(148, 163, 184, 0.25);
     }
 
     .snake-leaderboards {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.75rem;
-      margin-top: 0.5rem;
+      margin-top: 0.9rem;
     }
 
     .snake-leaderboard-card {
@@ -436,32 +460,80 @@
   </style>
 </head>
 <body>
-<!-- Easter Egg : Snake -->
-<div id="snake-container" class="snake-hidden">
-  <div id="snake-panel">
-    <div class="snake-header">
-      <h2>🐍 NebuleSnake</h2>
-      <button id="snake-close">&times;</button>
-    </div>
-    <p class="snake-subtitle">
-      Tu as tapé "snake", tu as débloqué le mode serpent.
-      <br>Flèches du clavier ou ZQSD pour jouer. 1/2/3 pour choisir la vitesse avant de démarrer.
-    </p>
-    <canvas id="snake-canvas" width="400" height="400"></canvas>
-    <p class="snake-score">
-      Score : <span id="snake-score-current">0</span>
-    </p>
-    <div class="snake-footer">
-      <span class="snake-speed">
-        Vitesse : <span id="snake-speed-label">Normal</span>
-      </span>
-      <button id="snake-achievements-btn" class="snake-achievements-btn">
-        🏆 Succès
-      </button>
+
+  <!-- Easter Egg : Snake -->
+  <div id="snake-container" class="snake-hidden">
+    <div id="snake-panel">
+      <div class="snake-header">
+        <h2>🐍 NebuleSnake</h2>
+        <button id="snake-close">&times;</button>
+      </div>
+      <p class="snake-subtitle">
+        Tu as tapé "snake", tu as débloqué le mode serpent.
+        <br>Flèches du clavier ou ZQSD pour jouer. 1/2/3 pour choisir la vitesse avant de démarrer.
+      </p>
+
+      <canvas id="snake-canvas" width="400" height="400"></canvas>
+
+      <p class="snake-score">
+        Score : <span id="snake-score-current">0</span>
+      </p>
+
+      <div class="snake-footer">
+        <span class="snake-speed">
+          Vitesse : <span id="snake-speed-label">Normal</span>
+        </span>
+        <button id="snake-achievements-btn" class="snake-achievements-btn">
+          🏆 Succès
+        </button>
+      </div>
+
+      <!-- Classements locaux (3 vitesses) -->
+      <div class="snake-leaderboards">
+        <div class="snake-leaderboard-card">
+          <h3>Lent <span>Top 10</span></h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nom</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="snake-highscores-lent"></tbody>
+          </table>
+        </div>
+
+        <div class="snake-leaderboard-card">
+          <h3>Normal <span>Top 10</span></h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nom</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="snake-highscores-normal"></tbody>
+          </table>
+        </div>
+
+        <div class="snake-leaderboard-card">
+          <h3>Rapide <span>Top 10</span></h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nom</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="snake-highscores-rapide"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
-</div>
-
 
   <div class="page">
     <!-- Header -->
@@ -553,8 +625,8 @@
         <button class="range-btn" data-range="7j">7j</button>
         <button class="range-btn" data-range="30j">30j</button>
 
-        <input type="date" id="start-date" class="date-input" placeholder="jj/mm/aaaa" />
-        <input type="date" id="end-date" class="date-input" placeholder="jj/mm/aaaa" />
+        <input type="date" id="start-date" class="date-input" />
+        <input type="date" id="end-date" class="date-input" />
 
         <button id="apply-range" class="btn-primary">Appliquer</button>
       </div>
