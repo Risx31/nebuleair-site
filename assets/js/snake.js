@@ -227,7 +227,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     const r = Math.random() * 100;
 
     // Pomme dorée – 1%
-    if (r < 1) {
+    if (r < 2) {
       const alreadyGolden = apples.some(a => a.type === "golden");
       if (!alreadyGolden) {
         spawnApple("golden");
@@ -251,7 +251,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
 
     // Jackpot – 4% (6–10)
-    if (r < 10) {
+    if (r < 1) {
       spawnBonus("jackpot");
       return;
     }
