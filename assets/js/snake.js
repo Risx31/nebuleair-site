@@ -611,7 +611,7 @@ const LEADERBOARD_API_URL =
 
         if (a.type === "golden") {
           // Pomme dorée → 5 nouvelles pommes normales
-          for (let k = 0; k < 5; k++) {
+          for (let k = 0; k < 1; k++) {
             spawnApple("normal");
           }
         } else {
