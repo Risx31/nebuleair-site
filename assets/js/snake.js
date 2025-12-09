@@ -1,5 +1,7 @@
 // assets/js/snake.js
-// NebuleAir Snake – vitesses verrouillées, bonus, emojis, classements locaux
+// NebuleAir Snake – vitesses verrouillées, bonus, emojis, classements locaux + mondial
+
+const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
   "use strict";
@@ -25,10 +27,9 @@
   let nextDir = { x: 1, y: 0 };
   let running = false;
   let score = 0;
-
-  // nouveau : savoir si on est en état "Game Over"
   let gameOverFlag = false;
 
+  // Pommes & bonus
   let apples = [];     // {x,y,type,expiresAt?}, type: "normal" | "golden"
   let bonusItems = []; // {x,y,type,expiresAt}, type: "turbo" | "double" | "jackpot" | "slim"
 
@@ -52,15 +53,18 @@
     slim: "✂️"
   };
 
+  // Classements (on garde un seul objet, qu'il soit local ou serveur)
   let leaderboards = {
     lent: [],
     normal: [],
     rapide: []
   };
 
-  // =============== Leaderboards ===============
+  // ==========================
+  //   LEADERBOARDS – LOCAL
+  // ==========================
 
-  function loadLeaderboards() {
+  function loadLeaderboardsLocal() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
@@ -73,17 +77,94 @@
         };
       }
     } catch (e) {
-      console.warn("[Snake] Impossible de charger les scores :", e);
+      console.warn("[Snake] Impossible de charger les scores locaux :", e);
     }
   }
 
-  function saveLeaderboards() {
+  function saveLeaderboardsLocal() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(leaderboards));
     } catch (e) {
-      console.warn("[Snake] Impossible d’enregistrer les scores :", e);
+      console.warn("[Snake] Impossible d’enregistrer les scores locaux :", e);
     }
   }
+
+  // ==========================
+  //   LEADERBOARDS – SERVEUR
+  // ==========================
+
+  async function sendScoreToServer(mode, name, value) {
+    try {
+      await fetch(LEADERBOARD_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mode,
+          name,
+          score: value,
+          date: new Date().toISOString()
+        })
+      });
+      // Après envoi, on tente de rafraîchir le classement mondial
+      fetchGlobalLeaderboards();
+    } catch (e) {
+      console.warn("[Snake] Impossible d’envoyer le score au serveur :", e);
+    }
+  }
+
+  async function fetchGlobalLeaderboards() {
+    try {
+      const res = await fetch(LEADERBOARD_API_URL, { method: "GET" });
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+      const data = await res.json();
+
+      // Deux formats possibles :
+      // 1) { lent: [...], normal: [...], rapide: [...] }
+      // 2) { scores: [ {mode,name,score,date?}, ... ] }
+      let fromServer = { lent: [], normal: [], rapide: [] };
+
+      if (data.lent || data.normal || data.rapide) {
+        fromServer.lent   = Array.isArray(data.lent)   ? data.lent   : [];
+        fromServer.normal = Array.isArray(data.normal) ? data.normal : [];
+        fromServer.rapide = Array.isArray(data.rapide) ? data.rapide : [];
+      } else if (Array.isArray(data.scores)) {
+        data.scores.forEach(entry => {
+          const m = entry.mode || "normal";
+          if (!fromServer[m]) fromServer[m] = [];
+          fromServer[m].push({
+            name: entry.name || "Anonyme",
+            score: entry.score || 0,
+            date: entry.date || null
+          });
+        });
+      } else {
+        console.warn("[Snake] Format de leaderboard serveur inattendu :", data);
+        return;
+      }
+
+      // Tri local & limite top10, histoire d'être propre même si le serveur ne le fait pas
+      ["lent", "normal", "rapide"].forEach(mode => {
+        fromServer[mode].sort((a, b) => (b.score || 0) - (a.score || 0));
+        fromServer[mode] = fromServer[mode].slice(0, 10);
+      });
+
+      leaderboards = fromServer;
+      saveLeaderboardsLocal(); // on met en cache
+      renderScoreboards();
+      console.log("[Snake] Classements mondiaux chargés depuis le serveur.");
+    } catch (e) {
+      console.warn("[Snake] Impossible de récupérer le classement mondial :", e);
+      // on reste sur le local si le serveur ne répond pas
+    }
+  }
+
+  // ==========================
+  //   LEADERBOARDS – COMMUN
+  // ==========================
 
   function addScore(mode, name, value) {
     if (!leaderboards[mode]) return;
@@ -96,8 +177,12 @@
 
     leaderboards[mode].sort((a, b) => b.score - a.score);
     leaderboards[mode] = leaderboards[mode].slice(0, 10);
-    saveLeaderboards();
+
+    saveLeaderboardsLocal();
     renderScoreboards();
+
+    // En parallèle → envoi au serveur
+    sendScoreToServer(mode, name || "Anonyme", value);
   }
 
   function renderScoreboards() {
@@ -138,7 +223,9 @@
     addScore(currentMode, name, score);
   }
 
-  // =============== Map & bonus utilitaires ===============
+  // ==========================
+  //   MAP / BONUS
+  // ==========================
 
   function isCellOccupied(x, y) {
     if (snake.some(seg => seg.x === x && seg.y === y)) return true;
@@ -178,7 +265,6 @@
   function maybeSpawnRareStuff() {
     const r = Math.random() * 100;
 
-    // 1% pomme dorée
     if (r < 1) {
       const alreadyGolden = apples.some(a => a.type === "golden");
       if (!alreadyGolden) spawnApple("golden");
@@ -187,13 +273,13 @@
 
     if (bonusItems.length > 0) return;
 
-    if (r < 3) {          // 2%
+    if (r < 3) {
       spawnBonus("turbo");
-    } else if (r < 6) {   // 3%
+    } else if (r < 6) {
       spawnBonus("double");
-    } else if (r < 10) {  // 4%
+    } else if (r < 10) {
       spawnBonus("jackpot");
-    } else if (r < 15) {  // 5%
+    } else if (r < 15) {
       spawnBonus("slim");
     }
   }
@@ -208,7 +294,9 @@
     apples = apples.filter(a => !a.expiresAt || a.expiresAt > now);
   }
 
-  // =============== Effets ===============
+  // ==========================
+  //   EFFETS
+  // ==========================
 
   function getAppleScoreGain() {
     let gain = 1;
@@ -262,7 +350,9 @@
     }
   }
 
-  // =============== Jeu ===============
+  // ==========================
+  //   LOGIQUE DE JEU
+  // ==========================
 
   function resetGame() {
     const startX = Math.floor(tileCount / 2);
@@ -286,7 +376,7 @@
     updateScoreLabel();
 
     running = false;
-    gameOverFlag = false;   // ➜ on n'est plus en état Game Over
+    gameOverFlag = false;
 
     if (ctx) draw();
   }
@@ -386,7 +476,7 @@
 
   function gameOver() {
     running = false;
-    gameOverFlag = true;   // ➜ on marque clairement la fin de partie
+    gameOverFlag = true;
 
     if (gameInterval) {
       clearInterval(gameInterval);
@@ -397,7 +487,9 @@
     askNameAndStoreScore();
   }
 
-  // =============== Dessin ===============
+  // ==========================
+  //   DESSIN
+  // ==========================
 
   function clearCanvas() {
     ctx.fillStyle = "#000";
@@ -490,7 +582,9 @@
     ctx.fillText(`Score : ${score}`, canvas.width / 2, canvas.height / 2 + 20);
   }
 
-  // =============== Vitesse & init ===============
+  // ==========================
+  //   VITESSE & INIT
+  // ==========================
 
   function setSpeedMode(mode) {
     if (!SPEEDS[mode]) return;
@@ -521,8 +615,13 @@
     if (!canvas.height) canvas.height = tileCount * 20;
     tileSize = Math.floor(Math.min(canvas.width, canvas.height) / tileCount);
 
-    loadLeaderboards();
+    // 1) On charge le cache local
+    loadLeaderboardsLocal();
     renderScoreboards();
+
+    // 2) On tente de récupérer le classement mondial en arrière-plan
+    fetchGlobalLeaderboards();
+
     setSpeedMode(currentMode);
     resetGame();
 
@@ -535,7 +634,9 @@
     }
   }
 
-  // =============== Contrôles clavier ===============
+  // ==========================
+  //   CONTRÔLES CLAVIER
+  // ==========================
 
   document.addEventListener("keydown", e => {
     const key = e.key;
@@ -545,7 +646,6 @@
       container && !container.classList.contains("snake-hidden");
     if (!snakeVisible) return;
 
-    // gestion des vitesses (uniquement hors partie)
     if (key === "1" || key === "2" || key === "3") {
       if (!running && !gameOverFlag) {
         if (key === "1") setSpeedMode("lent");
@@ -569,17 +669,15 @@
       e.preventDefault();
     }
 
-    // === Gestion du démarrage / restart ===
+    // Démarrage / restart
     if (!running) {
       if (gameOverFlag) {
-        // on redémarre une NOUVELLE partie
         resetGame();
       }
       running = true;
       restartGameInterval();
     }
 
-    // Direction (pas de demi-tour instant)
     if (key === "ArrowUp" || key === "z") {
       if (snakeDir.y === 1) return;
       nextDir = { x: 0, y: -1 };
@@ -595,14 +693,16 @@
     }
   });
 
-  // =============== API globale ===============
+  // ==========================
+  //   API GLOBALE
+  // ==========================
 
   window.NebuleAirSnake = {
     init,
     setMode: setSpeedMode,
     resetScores: () => {
       leaderboards = { lent: [], normal: [], rapide: [] };
-      saveLeaderboards();
+      saveLeaderboardsLocal();
       renderScoreboards();
     }
   };
