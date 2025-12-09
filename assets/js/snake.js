@@ -16,6 +16,36 @@ const LEADERBOARD_API_URL =
   const STORAGE_KEY = "nebuleair_snake_leaderboards_v1";
   const STATS_KEY = "NEBULESNAKE_STATS_V1";
 
+    const ACHIEVEMENT_ICONS = {
+    PERMA_TURBO: "⚡",
+    GAMBLER: "🎰",
+    YOYO_BODY: "🏋️",
+    APPLE_RUSH: "🏃‍♂️",
+    STORM_RIDER: "⛈️",
+    FULL_HOUSE: "🧱",
+    MARATHON_RUN: "🏃‍♀️"
+  };
+
+  // Stats de la run en cours (pour succès)
+  let runStats;
+  let lastFrameTime = null;
+
+  function resetRunStats() {
+    runStats = {
+      turboActiveMs: 0,
+      applesEatenTotal: 0,
+      applesEatenDuringTurbo: 0,
+      goldenApplesEaten: 0,
+      jackpotTaken: 0,
+      doubleTaken: 0,
+      slimTaken: 0,
+      turboTaken: 0,
+      maxLength: 3,
+      yoyoDropReached: false
+    };
+  }
+
+  
   let currentMode = "normal";
   let gameInterval = null;
 
