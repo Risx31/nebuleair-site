@@ -1,78 +1,64 @@
 // assets/js/snake.js
-// NebuleAir Snake – classements, vitesses, bonus, emojis
-const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
+// NebuleAir Snake – vitesses verrouillées, bonus, emojis, classements locaux
 
 (function () {
   "use strict";
 
-  // ==========================
-  //   CONFIG GÉNÉRALE
-  // ==========================
-
   const SPEEDS = {
-    lent: 150,     // ms entre 2 frames
+    lent: 150,
     normal: 100,
     rapide: 60
   };
 
   const STORAGE_KEY = "nebuleair_snake_leaderboards_v1";
 
-  let currentMode = "normal";   // "lent" | "normal" | "rapide"
+  let currentMode = "normal";
   let gameInterval = null;
 
-  // Canvas & dessin
   let canvas = null;
   let ctx = null;
-  let tileCount = 20;
+  const tileCount = 20;
   let tileSize = 20;
 
-  // État du jeu
   let snake = [];
   let snakeDir = { x: 1, y: 0 };
   let nextDir = { x: 1, y: 0 };
-  let running = false;      // true = la boucle tourne
+  let running = false;
   let score = 0;
 
-  // Pommes & bonus
-  // type de pomme : "normal" | "golden"
-  let apples = [];
-  // type de bonus : "turbo" | "double" | "jackpot" | "slim"
-  let bonusItems = [];
+  // nouveau : savoir si on est en état "Game Over"
+  let gameOverFlag = false;
 
-  // Effets actifs
+  let apples = [];     // {x,y,type,expiresAt?}, type: "normal" | "golden"
+  let bonusItems = []; // {x,y,type,expiresAt}, type: "turbo" | "double" | "jackpot" | "slim"
+
   const activeEffects = {
     turbo: false,
     doubleScore: false
   };
-
   const effectTimeouts = {
     turbo: null,
     doubleScore: null
   };
 
-  // Emojis utilisés
   const APPLE_EMOJIS = {
     normal: "🍎",
-    golden: "🍏"  // pomme dorée / spéciale
+    golden: "🍏"
   };
-
   const BONUS_EMOJIS = {
-    turbo: "⚡",    // Turbo contrôlé
-    double: "✨",   // Double Score
-    jackpot: "💰",  // Jackpot
-    slim: "✂️"      // Minceur express
+    turbo: "⚡",
+    double: "✨",
+    jackpot: "💰",
+    slim: "✂️"
   };
 
-  // Classements (localStorage uniquement pour l'instant)
   let leaderboards = {
     lent: [],
     normal: [],
     rapide: []
   };
 
-  // ==========================
-  //   LEADERBOARDS
-  // ==========================
+  // =============== Leaderboards ===============
 
   function loadLeaderboards() {
     try {
@@ -108,42 +94,33 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       date: new Date().toISOString()
     });
 
-    // tri décroissant
     leaderboards[mode].sort((a, b) => b.score - a.score);
-
-    // on garde les 10 meilleurs
     leaderboards[mode] = leaderboards[mode].slice(0, 10);
-
     saveLeaderboards();
     renderScoreboards();
   }
 
   function renderScoreboards() {
-    const modes = ["lent", "normal", "rapide"];
-
-    modes.forEach(mode => {
+    ["lent", "normal", "rapide"].forEach(mode => {
       const tbody = document.getElementById(`snake-highscores-${mode}`);
-      if (!tbody) return; // si pas de tableau dans le HTML, on ne fait rien
+      if (!tbody) return;
 
       tbody.innerHTML = "";
-
       const scores = leaderboards[mode] || [];
+
       scores.forEach((entry, index) => {
         const tr = document.createElement("tr");
-
         const tdRank = document.createElement("td");
-        tdRank.textContent = index + 1;
-
         const tdName = document.createElement("td");
-        tdName.textContent = entry.name;
-
         const tdScore = document.createElement("td");
+
+        tdRank.textContent = index + 1;
+        tdName.textContent = entry.name;
         tdScore.textContent = entry.score;
 
         tr.appendChild(tdRank);
         tr.appendChild(tdName);
         tr.appendChild(tdScore);
-
         tbody.appendChild(tr);
       });
     });
@@ -154,21 +131,14 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
       ""
     );
-
-    // Si l'utilisateur clique sur "Annuler" → on ne l'ajoute pas au classement
-    if (pseudo === null) {
-      return;
-    }
+    if (pseudo === null) return;
 
     const trimmed = pseudo.trim();
     const name = trimmed === "" ? "Anonyme" : trimmed;
-
     addScore(currentMode, name, score);
   }
 
-  // ==========================
-  //   UTILITAIRES MAP/BONUS
-  // ==========================
+  // =============== Map & bonus utilitaires ===============
 
   function isCellOccupied(x, y) {
     if (snake.some(seg => seg.x === x && seg.y === y)) return true;
@@ -189,110 +159,67 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   function spawnApple(type = "normal") {
     const pos = randomFreeCell();
     let expiresAt = null;
-
-    // La pomme dorée disparaît au bout de ~6 s si on ne la mange pas
     if (type === "golden") {
-      const lifetimeMs = 6000;
-      expiresAt = Date.now() + lifetimeMs;
+      expiresAt = Date.now() + 6000; // 6s
     }
-
-    apples.push({
-      x: pos.x,
-      y: pos.y,
-      type: type,
-      expiresAt: expiresAt
-    });
+    apples.push({ x: pos.x, y: pos.y, type, expiresAt });
   }
 
   function spawnBonus(type) {
     const pos = randomFreeCell();
-    const lifetimeMs = 5000; // visible 5 s sur la map
     bonusItems.push({
       x: pos.x,
       y: pos.y,
-      type: type,
-      expiresAt: Date.now() + lifetimeMs
+      type,
+      expiresAt: Date.now() + 5000 // 5s
     });
   }
 
   function maybeSpawnRareStuff() {
-    // Appelé après chaque pomme mangée.
-    // Probabilités approx :
-    // 1% pomme dorée, 2% turbo, 3% double, 4% jackpot, 5% slim.
-    // Soit ~15% max.
-
     const r = Math.random() * 100;
 
-    // Pomme dorée – 1%
+    // 1% pomme dorée
     if (r < 1) {
       const alreadyGolden = apples.some(a => a.type === "golden");
-      if (!alreadyGolden) {
-        spawnApple("golden");
-      }
+      if (!alreadyGolden) spawnApple("golden");
       return;
     }
 
-    // Pas plus d'un bonus sur la map à la fois pour garder ça lisible
     if (bonusItems.length > 0) return;
 
-    // Turbo – 2% (1–3)
-    if (r < 3) {
+    if (r < 3) {          // 2%
       spawnBonus("turbo");
-      return;
-    }
-
-    // Double Score – 3% (3–6)
-    if (r < 6) {
+    } else if (r < 6) {   // 3%
       spawnBonus("double");
-      return;
-    }
-
-    // Jackpot – 4% (6–10)
-    if (r < 10) {
+    } else if (r < 10) {  // 4%
       spawnBonus("jackpot");
-      return;
-    }
-
-    // Minceur express – 5% (10–15)
-    if (r < 15) {
+    } else if (r < 15) {  // 5%
       spawnBonus("slim");
     }
   }
 
   function cleanExpiredBonuses() {
-    if (!bonusItems.length) return;
     const now = Date.now();
     bonusItems = bonusItems.filter(b => b.expiresAt > now);
   }
 
   function cleanExpiredApples() {
-    if (!apples.length) return;
     const now = Date.now();
-    // seules les golden ont expiresAt, les normales restent
     apples = apples.filter(a => !a.expiresAt || a.expiresAt > now);
   }
 
-  // ==========================
-  //   GESTION DES EFFETS
-  // ==========================
+  // =============== Effets ===============
 
   function getAppleScoreGain() {
     let gain = 1;
-
-    if (activeEffects.doubleScore) {
-      gain *= 2;
-    }
-    if (activeEffects.turbo) {
-      // turbo = +1 point par pomme en plus
-      gain += 1;
-    }
-
+    if (activeEffects.doubleScore) gain *= 2;
+    if (activeEffects.turbo) gain += 1;
     return gain;
   }
 
   function applySlimEffect() {
     const minLength = 3;
-    let toRemove = 4; // on retire jusqu'à 4 segments
+    let toRemove = 4;
     while (snake.length > minLength && toRemove > 0) {
       snake.pop();
       toRemove--;
@@ -302,61 +229,40 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   function activateTurbo() {
     activeEffects.turbo = true;
     if (effectTimeouts.turbo) clearTimeout(effectTimeouts.turbo);
-
-    effectTimeouts.turbo = setTimeout(function () {
+    effectTimeouts.turbo = setTimeout(() => {
       activeEffects.turbo = false;
       restartGameInterval();
-    }, 5000); // 5 s
-
+    }, 5000);
     restartGameInterval();
   }
 
   function activateDoubleScore() {
     activeEffects.doubleScore = true;
     if (effectTimeouts.doubleScore) clearTimeout(effectTimeouts.doubleScore);
-
-    effectTimeouts.doubleScore = setTimeout(function () {
+    effectTimeouts.doubleScore = setTimeout(() => {
       activeEffects.doubleScore = false;
-    }, 10000); // 10 s
+    }, 10000);
   }
 
   function clearAllEffects() {
     activeEffects.turbo = false;
     activeEffects.doubleScore = false;
-
-    if (effectTimeouts.turbo) {
-      clearTimeout(effectTimeouts.turbo);
-      effectTimeouts.turbo = null;
-    }
-    if (effectTimeouts.doubleScore) {
-      clearTimeout(effectTimeouts.doubleScore);
-      effectTimeouts.doubleScore = null;
-    }
+    if (effectTimeouts.turbo) clearTimeout(effectTimeouts.turbo);
+    if (effectTimeouts.doubleScore) clearTimeout(effectTimeouts.doubleScore);
+    effectTimeouts.turbo = null;
+    effectTimeouts.doubleScore = null;
   }
 
   function applyBonusEffect(type) {
     switch (type) {
-      case "turbo":
-        activateTurbo();
-        break;
-      case "double":
-        activateDoubleScore();
-        break;
-      case "jackpot":
-        score += 5;
-        updateScoreLabel();
-        break;
-      case "slim":
-        applySlimEffect();
-        break;
-      default:
-        break;
+      case "turbo":   activateTurbo();      break;
+      case "double":  activateDoubleScore();break;
+      case "jackpot": score += 5; updateScoreLabel(); break;
+      case "slim":    applySlimEffect();    break;
     }
   }
 
-  // ==========================
-  //   GESTION DU JEU
-  // ==========================
+  // =============== Jeu ===============
 
   function resetGame() {
     const startX = Math.floor(tileCount / 2);
@@ -374,16 +280,15 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     apples = [];
     bonusItems = [];
     clearAllEffects();
-
-    spawnApple("normal"); // au moins une pomme au départ
+    spawnApple("normal");
 
     score = 0;
     updateScoreLabel();
-    running = false;   // la partie ne démarre plus automatiquement
 
-    if (ctx) {
-      draw(); // on affiche un état propre
-    }
+    running = false;
+    gameOverFlag = false;   // ➜ on n'est plus en état Game Over
+
+    if (ctx) draw();
   }
 
   function handleAppleCollisions(head) {
@@ -393,28 +298,17 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       const a = apples[i];
       if (a.x === head.x && a.y === head.y) {
         ateApple = true;
-
-        // score pour cette pomme
-        const gain = getAppleScoreGain();
-        score += gain;
+        score += getAppleScoreGain();
         updateScoreLabel();
-
-        // on enlève la pomme mangée
         apples.splice(i, 1);
 
         if (a.type === "golden") {
-          // Pomme dorée → 5 nouvelles pommes normales
-          for (let k = 0; k < 5; k++) {
-            spawnApple("normal");
-          }
+          for (let k = 0; k < 5; k++) spawnApple("normal");
         } else {
-          // pomme normale : on en remet une
           spawnApple("normal");
         }
 
-        // après toute pomme mangée, on tente les bonus rares
         maybeSpawnRareStuff();
-
         break;
       }
     }
@@ -435,15 +329,13 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function updateScoreLabel() {
     const el = document.getElementById("snake-score-current");
-    if (el) {
-      el.textContent = score;
-    }
+    if (el) el.textContent = score;
   }
 
   function getCurrentSpeed() {
     let base = SPEEDS[currentMode] || SPEEDS.normal;
     if (activeEffects.turbo) {
-      base = Math.max(30, Math.floor(base * 0.6)); // ~40% plus rapide
+      base = Math.max(30, Math.floor(base * 0.6));
     }
     return base;
   }
@@ -456,94 +348,70 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function gameLoop() {
     if (!running) return;
-
-    // sécurité : si pour une raison quelconque le snake est vide, on reset
     if (!snake || snake.length === 0) {
-      console.warn("[Snake] Snake vide détecté, reset automatique.");
+      console.warn("[Snake] Snake vide, reset.");
       resetGame();
       return;
     }
 
-    // Appliquer la direction tapée
     snakeDir = { x: nextDir.x, y: nextDir.y };
 
-    // Nouvelle position de la tête
     const head = snake[0];
-    const newHead = {
-      x: head.x + snakeDir.x,
-      y: head.y + snakeDir.y
-    };
+    const newHead = { x: head.x + snakeDir.x, y: head.y + snakeDir.y };
 
-    // Collision murs
     if (
-      newHead.x < 0 ||
-      newHead.x >= tileCount ||
-      newHead.y < 0 ||
-      newHead.y >= tileCount
+      newHead.x < 0 || newHead.x >= tileCount ||
+      newHead.y < 0 || newHead.y >= tileCount
     ) {
       gameOver();
       return;
     }
 
-    // Collision avec soi-même
-    if (snake.some(function (seg) { return seg.x === newHead.x && seg.y === newHead.y; })) {
+    if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
       gameOver();
       return;
     }
 
-    // Ajouter tête
     snake.unshift(newHead);
 
-    // Pommes
     const ateApple = handleAppleCollisions(newHead);
-
-    // Bonus
     handleBonusCollisions(newHead);
 
-    // Si on n'a pas mangé de pomme, on enlève la queue
-    if (!ateApple) {
-      snake.pop();
-    }
+    if (!ateApple) snake.pop();
 
-    // Nettoyage des éléments expirés
     cleanExpiredApples();
     cleanExpiredBonuses();
-
     draw();
   }
 
   function gameOver() {
     running = false;
+    gameOverFlag = true;   // ➜ on marque clairement la fin de partie
+
     if (gameInterval) {
       clearInterval(gameInterval);
       gameInterval = null;
     }
-
     clearAllEffects();
-
     drawGameOver();
     askNameAndStoreScore();
   }
 
-  // ==========================
-  //   DESSIN
-  // ==========================
+  // =============== Dessin ===============
 
   function clearCanvas() {
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   function drawGrid() {
     ctx.strokeStyle = "rgba(255,255,255,0.05)";
     for (let i = 0; i < tileCount; i++) {
-      // verticales
       ctx.beginPath();
       ctx.moveTo(i * tileSize, 0);
       ctx.lineTo(i * tileSize, canvas.height);
       ctx.stroke();
 
-      // horizontales
       ctx.beginPath();
       ctx.moveTo(0, i * tileSize);
       ctx.lineTo(canvas.width, i * tileSize);
@@ -552,7 +420,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawSnake() {
-    snake.forEach(function (seg, index) {
+    snake.forEach((seg, index) => {
       ctx.fillStyle = index === 0 ? "#00ff7f" : "#1e90ff";
       ctx.fillRect(
         seg.x * tileSize + 1,
@@ -564,42 +432,41 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawApples() {
-    apples.forEach(function (a) {
+    apples.forEach(a => {
       const emoji = APPLE_EMOJIS[a.type] || APPLE_EMOJIS.normal;
       const fontSize = Math.floor(tileSize * 0.9);
-
       ctx.save();
-      ctx.font = fontSize + "px system-ui";
+      ctx.font = `${fontSize}px system-ui`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      const cx = a.x * tileSize + tileSize / 2;
-      const cy = a.y * tileSize + tileSize / 2;
-
-      ctx.fillText(emoji, cx, cy);
+      ctx.fillText(
+        emoji,
+        a.x * tileSize + tileSize / 2,
+        a.y * tileSize + tileSize / 2
+      );
       ctx.restore();
     });
   }
 
   function drawBonuses() {
-    bonusItems.forEach(function (b) {
+    bonusItems.forEach(b => {
       const emoji = BONUS_EMOJIS[b.type] || "❓";
       const fontSize = Math.floor(tileSize * 0.9);
-
       ctx.save();
-      ctx.font = fontSize + "px system-ui";
+      ctx.font = `${fontSize}px system-ui`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      const cx = b.x * tileSize + tileSize / 2;
-      const cy = b.y * tileSize + tileSize / 2;
-
-      ctx.fillText(emoji, cx, cy);
+      ctx.fillText(
+        emoji,
+        b.x * tileSize + tileSize / 2,
+        b.y * tileSize + tileSize / 2
+      );
       ctx.restore();
     });
   }
 
   function draw() {
+    if (!ctx) return;
     clearCanvas();
     drawGrid();
     drawSnake();
@@ -618,76 +485,40 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     ctx.textBaseline = "middle";
     ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 10);
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#fff";
     ctx.font = "16px sans-serif";
-    ctx.fillText(
-      "Score : " + score,
-      canvas.width / 2,
-      canvas.height / 2 + 20
-    );
+    ctx.fillText(`Score : ${score}`, canvas.width / 2, canvas.height / 2 + 20);
   }
 
-  // ==========================
-  //   VITESSE & MODES
-  // ==========================
+  // =============== Vitesse & init ===============
 
   function setSpeedMode(mode) {
     if (!SPEEDS[mode]) return;
-
-    // ❌ Pas de changement de mode si une partie est en cours
     if (running) {
       console.log("[Snake] Changement de vitesse ignoré (partie en cours)");
       return;
     }
-
     currentMode = mode;
 
-    // Mettre à jour l'affichage de la vitesse si l'élément existe
     const label = document.getElementById("snake-speed-label");
     if (label) {
-      const txt =
-        mode === "lent"
-          ? "Lent"
-          : mode === "rapide"
-          ? "Rapide"
-          : "Normal";
-      label.textContent = txt;
+      label.textContent =
+        mode === "lent" ? "Lent" : mode === "rapide" ? "Rapide" : "Normal";
     }
 
-    // pas de restart ici : la partie démarrera au premier mouvement
     renderScoreboards();
   }
 
-  // ==========================
-  //   INIT
-  // ==========================
-
-  function init(canvasId) {
-    // On accepte plusieurs IDs possibles pour être tolérant :
-    const candidates = [];
-    if (canvasId) candidates.push(canvasId);
-    candidates.push("snake-canvas", "snakeCanvas");
-
-    canvas = null;
-    for (let i = 0; i < candidates.length; i++) {
-      const id = candidates[i];
-      const c = document.getElementById(id);
-      if (c) {
-        canvas = c;
-        break;
-      }
-    }
-
+  function init() {
+    canvas = document.getElementById("snakeCanvas");
     if (!canvas) {
-      console.warn("[Snake] Canvas introuvable, ids testés =", candidates.join(", "));
+      console.warn("[Snake] Canvas introuvable, id = snakeCanvas");
       return;
     }
-
     ctx = canvas.getContext("2d");
 
-    if (!canvas.width) canvas.width = tileCount * tileSize;
-    if (!canvas.height) canvas.height = tileCount * tileSize;
-
+    if (!canvas.width) canvas.width = tileCount * 20;
+    if (!canvas.height) canvas.height = tileCount * 20;
     tileSize = Math.floor(Math.min(canvas.width, canvas.height) / tileCount);
 
     loadLeaderboards();
@@ -695,69 +526,60 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     setSpeedMode(currentMode);
     resetGame();
 
-    // Bouton "Succès"
     const achBtn = document.getElementById("snake-achievements-btn");
     if (achBtn && !achBtn._nebuleBound) {
       achBtn._nebuleBound = true;
-      achBtn.addEventListener("click", function () {
+      achBtn.addEventListener("click", () => {
         window.location.href = "succes.html";
       });
     }
   }
 
-  // ==========================
-  //   CONTROLES CLAVIER
-  // ==========================
+  // =============== Contrôles clavier ===============
 
-  document.addEventListener("keydown", function (e) {
+  document.addEventListener("keydown", e => {
     const key = e.key;
 
-    // On ne s'occupe des touches que si le Snake est visible
     const container = document.getElementById("snake-container");
     const snakeVisible =
       container && !container.classList.contains("snake-hidden");
     if (!snakeVisible) return;
 
-    // --- Changements de vitesse : uniquement AVANT de lancer la partie ---
+    // gestion des vitesses (uniquement hors partie)
     if (key === "1" || key === "2" || key === "3") {
-      if (running) return; // pas de changement en cours de partie
-
-      if (key === "1") setSpeedMode("lent");
-      if (key === "2") setSpeedMode("normal");
-      if (key === "3") setSpeedMode("rapide");
+      if (!running && !gameOverFlag) {
+        if (key === "1") setSpeedMode("lent");
+        if (key === "2") setSpeedMode("normal");
+        if (key === "3") setSpeedMode("rapide");
+      }
       return;
     }
 
-    // --- Déplacements (ZQSD / flèches) ---
     const isDirKey =
-      key === "ArrowUp" ||
-      key === "ArrowDown" ||
-      key === "ArrowLeft" ||
-      key === "ArrowRight" ||
-      key === "z" ||
-      key === "q" ||
-      key === "s" ||
-      key === "d";
+      key === "ArrowUp" || key === "ArrowDown" ||
+      key === "ArrowLeft" || key === "ArrowRight" ||
+      key === "z" || key === "q" || key === "s" || key === "d";
 
     if (!isDirKey) return;
 
-    // Empêche le scroll de la page avec les flèches
     if (
-      key === "ArrowUp" ||
-      key === "ArrowDown" ||
-      key === "ArrowLeft" ||
-      key === "ArrowRight"
+      key === "ArrowUp" || key === "ArrowDown" ||
+      key === "ArrowLeft" || key === "ArrowRight"
     ) {
       e.preventDefault();
     }
 
-    // Lancer la partie au premier déplacement
+    // === Gestion du démarrage / restart ===
     if (!running) {
+      if (gameOverFlag) {
+        // on redémarre une NOUVELLE partie
+        resetGame();
+      }
       running = true;
       restartGameInterval();
     }
 
-    // On évite de tourner à 180° brutalement
+    // Direction (pas de demi-tour instant)
     if (key === "ArrowUp" || key === "z") {
       if (snakeDir.y === 1) return;
       nextDir = { x: 0, y: -1 };
@@ -773,16 +595,15 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
   });
 
-  // Expose quelques fonctions globales (pratique pour dashboard.js)
+  // =============== API globale ===============
+
   window.NebuleAirSnake = {
-    init: init,
+    init,
     setMode: setSpeedMode,
-    resetScores: function () {
+    resetScores: () => {
       leaderboards = { lent: [], normal: [], rapide: [] };
       saveLeaderboards();
       renderScoreboards();
     }
   };
-
-  // Pas d'auto-init : c'est dashboard.js qui appelle NebuleAirSnake.init(...)
 })();
