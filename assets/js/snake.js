@@ -1,7 +1,8 @@
 // assets/js/snake.js
-// NebuleAir Snake – vitesses verrouillées, bonus, emojis, classements locaux + mondial
+// NebuleAir Snake – vitesses verrouillées, bonus, emojis, classements + stats
 
-const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboard";
+const LEADERBOARD_API_URL =
+  "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
   "use strict";
@@ -13,6 +14,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   };
 
   const STORAGE_KEY = "nebuleair_snake_leaderboards_v1";
+  const STATS_KEY = "NEBULESNAKE_STATS_V1";
 
   let currentMode = "normal";
   let gameInterval = null;
@@ -29,9 +31,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   let score = 0;
   let gameOverFlag = false;
 
-  // Pommes & bonus
-  let apples = [];     // {x,y,type,expiresAt?}, type: "normal" | "golden"
-  let bonusItems = []; // {x,y,type,expiresAt}, type: "turbo" | "double" | "jackpot" | "slim"
+  let apples = [];     // {x,y,type,expiresAt?}
+  let bonusItems = []; // {x,y,type,expiresAt}
 
   const activeEffects = {
     turbo: false,
@@ -46,6 +47,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     normal: "🍎",
     golden: "🍏"
   };
+
   const BONUS_EMOJIS = {
     turbo: "⚡",
     double: "✨",
@@ -53,12 +55,49 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     slim: "✂️"
   };
 
-  // Classements (on garde un seul objet, qu'il soit local ou serveur)
   let leaderboards = {
     lent: [],
     normal: [],
     rapide: []
   };
+
+  // Stats de run (pour durée locale + envoi au serveur)
+  let runStartTime = null;
+  let lastRunDurationSec = 0;
+
+  // ==========================
+  //   STATS LOCALES (OPTIONNEL)
+  // ==========================
+
+  function loadLocalStats() {
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      if (!raw) return { totalGames: 0, totalPlayTimeSec: 0 };
+      const obj = JSON.parse(raw);
+      return {
+        totalGames: Number(obj.totalGames) || 0,
+        totalPlayTimeSec: Number(obj.totalPlayTimeSec) || 0
+      };
+    } catch (e) {
+      console.warn("[Snake] Impossible de charger les stats locales", e);
+      return { totalGames: 0, totalPlayTimeSec: 0 };
+    }
+  }
+
+  function saveLocalStats(stats) {
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    } catch (e) {
+      console.warn("[Snake] Impossible d’enregistrer les stats locales", e);
+    }
+  }
+
+  function registerRunDuration(durationSec) {
+    const stats = loadLocalStats();
+    stats.totalGames += 1;
+    stats.totalPlayTimeSec += Math.max(0, Math.floor(durationSec));
+    saveLocalStats(stats);
+  }
 
   // ==========================
   //   LEADERBOARDS – LOCAL
@@ -93,21 +132,19 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   //   LEADERBOARDS – SERVEUR
   // ==========================
 
-  async function sendScoreToServer(mode, name, value) {
+  async function sendScoreToServer(mode, name, value, durationSec) {
     try {
       await fetch(LEADERBOARD_API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
           name,
           score: value,
-          date: new Date().toISOString()
+          durationSec
         })
       });
-      // Après envoi, on tente de rafraîchir le classement mondial
+      // on rafraîchit le classement global
       fetchGlobalLeaderboards();
     } catch (e) {
       console.warn("[Snake] Impossible d’envoyer le score au serveur :", e);
@@ -117,22 +154,22 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   async function fetchGlobalLeaderboards() {
     try {
       const res = await fetch(LEADERBOARD_API_URL, { method: "GET" });
-      if (!res.ok) {
-        throw new Error("HTTP " + res.status);
-      }
+      if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
 
-      // Deux formats possibles :
-      // 1) { lent: [...], normal: [...], rapide: [...] }
-      // 2) { scores: [ {mode,name,score,date?}, ... ] }
       let fromServer = { lent: [], normal: [], rapide: [] };
 
-      if (data.lent || data.normal || data.rapide) {
-        fromServer.lent   = Array.isArray(data.lent)   ? data.lent   : [];
+      if (data.leaderboards) {
+        const lb = data.leaderboards;
+        fromServer.lent = Array.isArray(lb.lent) ? lb.lent : [];
+        fromServer.normal = Array.isArray(lb.normal) ? lb.normal : [];
+        fromServer.rapide = Array.isArray(lb.rapide) ? lb.rapide : [];
+      } else if (data.lent || data.normal || data.rapide) {
+        fromServer.lent = Array.isArray(data.lent) ? data.lent : [];
         fromServer.normal = Array.isArray(data.normal) ? data.normal : [];
         fromServer.rapide = Array.isArray(data.rapide) ? data.rapide : [];
       } else if (Array.isArray(data.scores)) {
-        data.scores.forEach(entry => {
+        data.scores.forEach((entry) => {
           const m = entry.mode || "normal";
           if (!fromServer[m]) fromServer[m] = [];
           fromServer[m].push({
@@ -142,23 +179,20 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
           });
         });
       } else {
-        console.warn("[Snake] Format de leaderboard serveur inattendu :", data);
+        console.warn("[Snake] Format leaderboard serveur inattendu :", data);
         return;
       }
 
-      // Tri local & limite top10, histoire d'être propre même si le serveur ne le fait pas
-      ["lent", "normal", "rapide"].forEach(mode => {
+      ["lent", "normal", "rapide"].forEach((mode) => {
         fromServer[mode].sort((a, b) => (b.score || 0) - (a.score || 0));
         fromServer[mode] = fromServer[mode].slice(0, 10);
       });
 
       leaderboards = fromServer;
-      saveLeaderboardsLocal(); // on met en cache
+      saveLeaderboardsLocal();
       renderScoreboards();
-      console.log("[Snake] Classements mondiaux chargés depuis le serveur.");
     } catch (e) {
       console.warn("[Snake] Impossible de récupérer le classement mondial :", e);
-      // on reste sur le local si le serveur ne répond pas
     }
   }
 
@@ -169,24 +203,25 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   function addScore(mode, name, value) {
     if (!leaderboards[mode]) return;
 
-    leaderboards[mode].push({
+    const entry = {
       name: name || "Anonyme",
       score: value,
       date: new Date().toISOString()
-    });
+    };
 
+    leaderboards[mode].push(entry);
     leaderboards[mode].sort((a, b) => b.score - a.score);
     leaderboards[mode] = leaderboards[mode].slice(0, 10);
 
     saveLeaderboardsLocal();
     renderScoreboards();
 
-    // En parallèle → envoi au serveur
-    sendScoreToServer(mode, name || "Anonyme", value);
+    // envoi au serveur avec la durée du run
+    sendScoreToServer(mode, entry.name, entry.score, lastRunDurationSec);
   }
 
   function renderScoreboards() {
-    ["lent", "normal", "rapide"].forEach(mode => {
+    ["lent", "normal", "rapide"].forEach((mode) => {
       const tbody = document.getElementById(`snake-highscores-${mode}`);
       if (!tbody) return;
 
@@ -228,9 +263,9 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   // ==========================
 
   function isCellOccupied(x, y) {
-    if (snake.some(seg => seg.x === x && seg.y === y)) return true;
-    if (apples.some(a => a.x === x && a.y === y)) return true;
-    if (bonusItems.some(b => b.x === x && b.y === y)) return true;
+    if (snake.some((seg) => seg.x === x && seg.y === y)) return true;
+    if (apples.some((a) => a.x === x && a.y === y)) return true;
+    if (bonusItems.some((b) => b.x === x && b.y === y)) return true;
     return false;
   }
 
@@ -266,7 +301,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     const r = Math.random() * 100;
 
     if (r < 1) {
-      const alreadyGolden = apples.some(a => a.type === "golden");
+      const alreadyGolden = apples.some((a) => a.type === "golden");
       if (!alreadyGolden) spawnApple("golden");
       return;
     }
@@ -286,12 +321,12 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function cleanExpiredBonuses() {
     const now = Date.now();
-    bonusItems = bonusItems.filter(b => b.expiresAt > now);
+    bonusItems = bonusItems.filter((b) => b.expiresAt > now);
   }
 
   function cleanExpiredApples() {
     const now = Date.now();
-    apples = apples.filter(a => !a.expiresAt || a.expiresAt > now);
+    apples = apples.filter((a) => !a.expiresAt || a.expiresAt > now);
   }
 
   // ==========================
@@ -343,10 +378,19 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
   function applyBonusEffect(type) {
     switch (type) {
-      case "turbo":   activateTurbo();      break;
-      case "double":  activateDoubleScore();break;
-      case "jackpot": score += 5; updateScoreLabel(); break;
-      case "slim":    applySlimEffect();    break;
+      case "turbo":
+        activateTurbo();
+        break;
+      case "double":
+        activateDoubleScore();
+        break;
+      case "jackpot":
+        score += 5;
+        updateScoreLabel();
+        break;
+      case "slim":
+        applySlimEffect();
+        break;
     }
   }
 
@@ -377,6 +421,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
 
     running = false;
     gameOverFlag = false;
+    runStartTime = null;
+    lastRunDurationSec = 0;
 
     if (ctx) draw();
   }
@@ -450,14 +496,16 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     const newHead = { x: head.x + snakeDir.x, y: head.y + snakeDir.y };
 
     if (
-      newHead.x < 0 || newHead.x >= tileCount ||
-      newHead.y < 0 || newHead.y >= tileCount
+      newHead.x < 0 ||
+      newHead.x >= tileCount ||
+      newHead.y < 0 ||
+      newHead.y >= tileCount
     ) {
       gameOver();
       return;
     }
 
-    if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
+    if (snake.some((seg) => seg.x === newHead.x && seg.y === newHead.y)) {
       gameOver();
       return;
     }
@@ -482,7 +530,15 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
       clearInterval(gameInterval);
       gameInterval = null;
     }
+
     clearAllEffects();
+
+    const now = Date.now();
+    const durationMs = runStartTime ? now - runStartTime : 0;
+    lastRunDurationSec = Math.max(1, Math.round(durationMs / 1000));
+    registerRunDuration(lastRunDurationSec);
+    runStartTime = null;
+
     drawGameOver();
     askNameAndStoreScore();
   }
@@ -524,7 +580,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawApples() {
-    apples.forEach(a => {
+    apples.forEach((a) => {
       const emoji = APPLE_EMOJIS[a.type] || APPLE_EMOJIS.normal;
       const fontSize = Math.floor(tileSize * 0.9);
       ctx.save();
@@ -541,7 +597,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   }
 
   function drawBonuses() {
-    bonusItems.forEach(b => {
+    bonusItems.forEach((b) => {
       const emoji = BONUS_EMOJIS[b.type] || "❓";
       const fontSize = Math.floor(tileSize * 0.9);
       ctx.save();
@@ -615,11 +671,8 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     if (!canvas.height) canvas.height = tileCount * 20;
     tileSize = Math.floor(Math.min(canvas.width, canvas.height) / tileCount);
 
-    // 1) On charge le cache local
     loadLeaderboardsLocal();
     renderScoreboards();
-
-    // 2) On tente de récupérer le classement mondial en arrière-plan
     fetchGlobalLeaderboards();
 
     setSpeedMode(currentMode);
@@ -638,7 +691,7 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
   //   CONTRÔLES CLAVIER
   // ==========================
 
-  document.addEventListener("keydown", e => {
+  document.addEventListener("keydown", (e) => {
     const key = e.key;
 
     const container = document.getElementById("snake-container");
@@ -656,24 +709,32 @@ const LEADERBOARD_API_URL = "https://nebuleairproxy.onrender.com/snake/leaderboa
     }
 
     const isDirKey =
-      key === "ArrowUp" || key === "ArrowDown" ||
-      key === "ArrowLeft" || key === "ArrowRight" ||
-      key === "z" || key === "q" || key === "s" || key === "d";
+      key === "ArrowUp" ||
+      key === "ArrowDown" ||
+      key === "ArrowLeft" ||
+      key === "ArrowRight" ||
+      key === "z" ||
+      key === "q" ||
+      key === "s" ||
+      key === "d";
 
     if (!isDirKey) return;
 
     if (
-      key === "ArrowUp" || key === "ArrowDown" ||
-      key === "ArrowLeft" || key === "ArrowRight"
+      key === "ArrowUp" ||
+      key === "ArrowDown" ||
+      key === "ArrowLeft" ||
+      key === "ArrowRight"
     ) {
       e.preventDefault();
     }
 
-    // Démarrage / restart
+    // démarrage / restart
     if (!running) {
       if (gameOverFlag) {
         resetGame();
       }
+      runStartTime = Date.now();
       running = true;
       restartGameInterval();
     }
