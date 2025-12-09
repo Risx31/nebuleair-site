@@ -1,11 +1,15 @@
 // assets/js/snake.js
-// NebuleAir Snake – vitesses verrouillées, bonus, emojis, classements + stats
+// NebuleAir Snake – bonus, succès, classements & stats globales
 
 const LEADERBOARD_API_URL =
   "https://nebuleairproxy.onrender.com/snake/leaderboard";
 
 (function () {
   "use strict";
+
+  // ==========================
+  //   CONFIG GÉNÉRALE
+  // ==========================
 
   const SPEEDS = {
     lent: 150,
@@ -16,7 +20,8 @@ const LEADERBOARD_API_URL =
   const STORAGE_KEY = "nebuleair_snake_leaderboards_v1";
   const STATS_KEY = "NEBULESNAKE_STATS_V1";
 
-    const ACHIEVEMENT_ICONS = {
+  // Icônes pour les succès (affichés dans le tableau)
+  const ACHIEVEMENT_ICONS = {
     PERMA_TURBO: "⚡",
     GAMBLER: "🎰",
     YOYO_BODY: "🏋️",
@@ -26,9 +31,66 @@ const LEADERBOARD_API_URL =
     MARATHON_RUN: "🏃‍♀️"
   };
 
-  // Stats de la run en cours (pour succès)
-  let runStats;
+  // Emojis pour les pommes / bonus
+  const APPLE_EMOJIS = {
+    normal: "🍎",
+    golden: "🍏"
+  };
+
+  const BONUS_EMOJIS = {
+    turbo: "⚡",
+    double: "✨",
+    jackpot: "💰",
+    slim: "✂️"
+  };
+
+  // ==========================
+  //   ÉTAT DU JEU
+  // ==========================
+
+  let currentMode = "normal"; // lent | normal | rapide
+  let gameInterval = null;
+
+  let canvas = null;
+  let ctx = null;
+  const tileCount = 20;
+  let tileSize = 20;
+
+  let snake = [];
+  let snakeDir = { x: 1, y: 0 };
+  let nextDir = { x: 1, y: 0 };
+  let running = false;
+  let gameOverFlag = false;
+  let score = 0;
+
+  // pommes : {x,y,type,expiresAt?}
+  let apples = [];
+  // bonus : {x,y,type,expiresAt}
+  let bonusItems = [];
+
+  const activeEffects = {
+    turbo: false,
+    doubleScore: false
+  };
+  const effectTimeouts = {
+    turbo: null,
+    doubleScore: null
+  };
+
+  // Leaderboards (top 10) par mode
+  let leaderboards = {
+    lent: [],
+    normal: [],
+    rapide: []
+  };
+
+  // Stats de run / durée
+  let runStartTime = null;
+  let lastRunDurationSec = 0;
   let lastFrameTime = null;
+
+  // Stats pour les succès
+  let runStats = null;
 
   function resetRunStats() {
     runStats = {
@@ -45,58 +107,8 @@ const LEADERBOARD_API_URL =
     };
   }
 
-  
-  let currentMode = "normal";
-  let gameInterval = null;
-
-  let canvas = null;
-  let ctx = null;
-  const tileCount = 20;
-  let tileSize = 20;
-
-  let snake = [];
-  let snakeDir = { x: 1, y: 0 };
-  let nextDir = { x: 1, y: 0 };
-  let running = false;
-  let score = 0;
-  let gameOverFlag = false;
-
-  let apples = [];     // {x,y,type,expiresAt?}
-  let bonusItems = []; // {x,y,type,expiresAt}
-
-  const activeEffects = {
-    turbo: false,
-    doubleScore: false
-  };
-  const effectTimeouts = {
-    turbo: null,
-    doubleScore: null
-  };
-
-  const APPLE_EMOJIS = {
-    normal: "🍎",
-    golden: "🍏"
-  };
-
-  const BONUS_EMOJIS = {
-    turbo: "⚡",
-    double: "✨",
-    jackpot: "💰",
-    slim: "✂️"
-  };
-
-  let leaderboards = {
-    lent: [],
-    normal: [],
-    rapide: []
-  };
-
-  // Stats de run (pour durée locale + envoi au serveur)
-  let runStartTime = null;
-  let lastRunDurationSec = 0;
-
   // ==========================
-  //   STATS LOCALES (OPTIONNEL)
+  //   STATS LOCALES (option)
   // ==========================
 
   function loadLocalStats() {
@@ -130,7 +142,7 @@ const LEADERBOARD_API_URL =
   }
 
   // ==========================
-  //   LEADERBOARDS – LOCAL
+  //   LEADERBOARDS LOCAUX
   // ==========================
 
   function loadLeaderboardsLocal() {
@@ -159,10 +171,16 @@ const LEADERBOARD_API_URL =
   }
 
   // ==========================
-  //   LEADERBOARDS – SERVEUR
+  //   LEADERBOARDS SERVEUR
   // ==========================
 
-  async function sendScoreToServer(mode, name, value, durationSec) {
+  async function sendScoreToServer(
+    mode,
+    name,
+    value,
+    durationSec,
+    achievements
+  ) {
     try {
       await fetch(LEADERBOARD_API_URL, {
         method: "POST",
@@ -171,10 +189,11 @@ const LEADERBOARD_API_URL =
           mode,
           name,
           score: value,
-          durationSec
+          durationSec,
+          achievements
         })
       });
-      // on rafraîchit le classement global
+      // On rafraîchit derrière
       fetchGlobalLeaderboards();
     } catch (e) {
       console.warn("[Snake] Impossible d’envoyer le score au serveur :", e);
@@ -205,6 +224,7 @@ const LEADERBOARD_API_URL =
           fromServer[m].push({
             name: entry.name || "Anonyme",
             score: entry.score || 0,
+            achievements: entry.achievements || [],
             date: entry.date || null
           });
         });
@@ -227,15 +247,16 @@ const LEADERBOARD_API_URL =
   }
 
   // ==========================
-  //   LEADERBOARDS – COMMUN
+  //   LEADERBOARDS COMMUN
   // ==========================
 
-  function addScore(mode, name, value) {
+  function addScore(mode, name, value, achievements = []) {
     if (!leaderboards[mode]) return;
 
     const entry = {
       name: name || "Anonyme",
       score: value,
+      achievements: achievements.slice(0),
       date: new Date().toISOString()
     };
 
@@ -246,8 +267,14 @@ const LEADERBOARD_API_URL =
     saveLeaderboardsLocal();
     renderScoreboards();
 
-    // envoi au serveur avec la durée du run
-    sendScoreToServer(mode, entry.name, entry.score, lastRunDurationSec);
+    // Envoi au serveur (score + durée + succès)
+    sendScoreToServer(
+      mode,
+      entry.name,
+      entry.score,
+      lastRunDurationSec,
+      entry.achievements
+    );
   }
 
   function renderScoreboards() {
@@ -266,7 +293,17 @@ const LEADERBOARD_API_URL =
 
         tdRank.textContent = index + 1;
         tdName.textContent = entry.name;
-        tdScore.textContent = entry.score;
+
+        let icons = "";
+        if (entry.achievements && entry.achievements.length) {
+          icons =
+            " " +
+            entry.achievements
+              .map((id) => ACHIEVEMENT_ICONS[id] || "")
+              .join("");
+        }
+
+        tdScore.textContent = entry.score + icons;
 
         tr.appendChild(tdRank);
         tr.appendChild(tdName);
@@ -276,20 +313,29 @@ const LEADERBOARD_API_URL =
     });
   }
 
-  function askNameAndStoreScore() {
+  function askNameAndStoreScore(achievementsForRun) {
     const pseudo = window.prompt(
       `Partie terminée !\nTu as mangé ${score} pomme(s).\nEntre ton nom pour le classement :`,
       ""
     );
-    if (pseudo === null) return;
+
+    // Annuler → aucun score
+    if (pseudo === null) {
+      return;
+    }
 
     const trimmed = pseudo.trim();
     const name = trimmed === "" ? "Anonyme" : trimmed;
-    addScore(currentMode, name, score);
+
+    const achievements = Array.isArray(achievementsForRun)
+      ? achievementsForRun
+      : [];
+
+    addScore(currentMode, name, score, achievements);
   }
 
   // ==========================
-  //   MAP / BONUS
+  //   MAP & BONUS
   // ==========================
 
   function isCellOccupied(x, y) {
@@ -328,23 +374,33 @@ const LEADERBOARD_API_URL =
   }
 
   function maybeSpawnRareStuff() {
+    // Probabilités approx :
+    // 1% pomme dorée, 2% turbo, 3% double, 4% jackpot, 5% slim.
     const r = Math.random() * 100;
 
+    // Pomme dorée – 1 %
     if (r < 1) {
       const alreadyGolden = apples.some((a) => a.type === "golden");
-      if (!alreadyGolden) spawnApple("golden");
+      if (!alreadyGolden) {
+        spawnApple("golden");
+      }
       return;
     }
 
+    // Un seul bonus à la fois
     if (bonusItems.length > 0) return;
 
     if (r < 3) {
+      // 1–3 %
       spawnBonus("turbo");
     } else if (r < 6) {
+      // 3–6 %
       spawnBonus("double");
     } else if (r < 10) {
+      // 6–10 %
       spawnBonus("jackpot");
     } else if (r < 15) {
+      // 10–15 %
       spawnBonus("slim");
     }
   }
@@ -360,7 +416,7 @@ const LEADERBOARD_API_URL =
   }
 
   // ==========================
-  //   EFFETS
+  //   EFFETS & SUCCÈS
   // ==========================
 
   function getAppleScoreGain() {
@@ -385,7 +441,7 @@ const LEADERBOARD_API_URL =
     effectTimeouts.turbo = setTimeout(() => {
       activeEffects.turbo = false;
       restartGameInterval();
-    }, 5000);
+    }, 5000); // 5 s
     restartGameInterval();
   }
 
@@ -394,7 +450,7 @@ const LEADERBOARD_API_URL =
     if (effectTimeouts.doubleScore) clearTimeout(effectTimeouts.doubleScore);
     effectTimeouts.doubleScore = setTimeout(() => {
       activeEffects.doubleScore = false;
-    }, 10000);
+    }, 10000); // 10 s
   }
 
   function clearAllEffects() {
@@ -407,6 +463,13 @@ const LEADERBOARD_API_URL =
   }
 
   function applyBonusEffect(type) {
+    if (runStats) {
+      if (type === "turbo") runStats.turboTaken++;
+      if (type === "double") runStats.doubleTaken++;
+      if (type === "jackpot") runStats.jackpotTaken++;
+      if (type === "slim") runStats.slimTaken++;
+    }
+
     switch (type) {
       case "turbo":
         activateTurbo();
@@ -421,11 +484,74 @@ const LEADERBOARD_API_URL =
       case "slim":
         applySlimEffect();
         break;
+      default:
+        break;
     }
   }
 
+  function computeRunAchievements() {
+    if (!runStats) return [];
+
+    const achievements = [];
+    const totalSec = lastRunDurationSec || 0;
+    const turboRatio =
+      totalSec > 0 ? runStats.turboActiveMs / 1000 / totalSec : 0;
+
+    // PERMA-TURBO : turbo ≥ 50% du temps, score ≥ 40
+    if (score >= 40 && turboRatio >= 0.5) {
+      achievements.push("PERMA_TURBO");
+    }
+
+    // GAMBLER : ≥1 jackpot, ≥2 double, aucun slim, score ≥ 50
+    if (
+      score >= 50 &&
+      runStats.jackpotTaken >= 1 &&
+      runStats.doubleTaken >= 2 &&
+      runStats.slimTaken === 0
+    ) {
+      achievements.push("GAMBLER");
+    }
+
+    // YOYO BODY : longueur max ≥ 25 et perte de ≥ 8 cases
+    if (runStats.maxLength >= 25 && runStats.yoyoDropReached) {
+      achievements.push("YOYO_BODY");
+    }
+
+    // APPLE RUSH : ≥ 10 pommes mangées sous turbo
+    if (runStats.applesEatenDuringTurbo >= 10) {
+      achievements.push("APPLE_RUSH");
+    }
+
+    // STORM RIDER : ≥ 3 golden, score ≥ 70, len max ≥ 25
+    if (
+      score >= 70 &&
+      runStats.maxLength >= 25 &&
+      runStats.goldenApplesEaten >= 3
+    ) {
+      achievements.push("STORM_RIDER");
+    }
+
+    // FULL HOUSE : tous les bonus + ≥ 2 golden, score ≥ 80
+    const usedAllBonuses =
+      runStats.turboTaken > 0 &&
+      runStats.doubleTaken > 0 &&
+      runStats.jackpotTaken > 0 &&
+      runStats.slimTaken > 0;
+
+    if (usedAllBonuses && runStats.goldenApplesEaten >= 2 && score >= 80) {
+      achievements.push("FULL_HOUSE");
+    }
+
+    // MARATHON RUN : ≥ 180 s et score ≥ 100
+    if (totalSec >= 180 && score >= 100) {
+      achievements.push("MARATHON_RUN");
+    }
+
+    return achievements;
+  }
+
   // ==========================
-  //   LOGIQUE DE JEU
+  //   LOGIQUE DU JEU
   // ==========================
 
   function resetGame() {
@@ -453,6 +579,8 @@ const LEADERBOARD_API_URL =
     gameOverFlag = false;
     runStartTime = null;
     lastRunDurationSec = 0;
+    lastFrameTime = null;
+    resetRunStats();
 
     if (ctx) draw();
   }
@@ -464,12 +592,28 @@ const LEADERBOARD_API_URL =
       const a = apples[i];
       if (a.x === head.x && a.y === head.y) {
         ateApple = true;
-        score += getAppleScoreGain();
+
+        if (runStats) {
+          runStats.applesEatenTotal++;
+          if (activeEffects.turbo) {
+            runStats.applesEatenDuringTurbo++;
+          }
+          if (a.type === "golden") {
+            runStats.goldenApplesEaten++;
+          }
+        }
+
+        const gain = getAppleScoreGain();
+        score += gain;
         updateScoreLabel();
+
         apples.splice(i, 1);
 
         if (a.type === "golden") {
-          for (let k = 0; k < 5; k++) spawnApple("normal");
+          // Pomme dorée → 5 nouvelles pommes normales
+          for (let k = 0; k < 5; k++) {
+            spawnApple("normal");
+          }
         } else {
           spawnApple("normal");
         }
@@ -501,7 +645,7 @@ const LEADERBOARD_API_URL =
   function getCurrentSpeed() {
     let base = SPEEDS[currentMode] || SPEEDS.normal;
     if (activeEffects.turbo) {
-      base = Math.max(30, Math.floor(base * 0.6));
+      base = Math.max(30, Math.floor(base * 0.6)); // ~40 % plus rapide
     }
     return base;
   }
@@ -514,17 +658,28 @@ const LEADERBOARD_API_URL =
 
   function gameLoop() {
     if (!running) return;
+
+    const now = Date.now();
+    if (lastFrameTime !== null && activeEffects.turbo && runStats) {
+      runStats.turboActiveMs += now - lastFrameTime;
+    }
+    lastFrameTime = now;
+
     if (!snake || snake.length === 0) {
-      console.warn("[Snake] Snake vide, reset.");
       resetGame();
       return;
     }
 
+    // Appliquer la direction demandée
     snakeDir = { x: nextDir.x, y: nextDir.y };
 
     const head = snake[0];
-    const newHead = { x: head.x + snakeDir.x, y: head.y + snakeDir.y };
+    const newHead = {
+      x: head.x + snakeDir.x,
+      y: head.y + snakeDir.y
+    };
 
+    // Collision murs
     if (
       newHead.x < 0 ||
       newHead.x >= tileCount ||
@@ -535,6 +690,7 @@ const LEADERBOARD_API_URL =
       return;
     }
 
+    // Collision avec soi-même
     if (snake.some((seg) => seg.x === newHead.x && seg.y === newHead.y)) {
       gameOver();
       return;
@@ -545,10 +701,24 @@ const LEADERBOARD_API_URL =
     const ateApple = handleAppleCollisions(newHead);
     handleBonusCollisions(newHead);
 
-    if (!ateApple) snake.pop();
+    if (!ateApple) {
+      snake.pop();
+    }
 
     cleanExpiredApples();
     cleanExpiredBonuses();
+
+    // Mise à jour des stats de longueur (YOYO BODY)
+    if (runStats) {
+      const len = snake.length;
+      if (len > runStats.maxLength) {
+        runStats.maxLength = len;
+      }
+      if (len < runStats.maxLength - 8) {
+        runStats.yoyoDropReached = true;
+      }
+    }
+
     draw();
   }
 
@@ -569,8 +739,10 @@ const LEADERBOARD_API_URL =
     registerRunDuration(lastRunDurationSec);
     runStartTime = null;
 
+    const achievements = computeRunAchievements();
+
     drawGameOver();
-    askNameAndStoreScore();
+    askNameAndStoreScore(achievements);
   }
 
   // ==========================
@@ -578,7 +750,7 @@ const LEADERBOARD_API_URL =
   // ==========================
 
   function clearCanvas() {
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
@@ -663,9 +835,13 @@ const LEADERBOARD_API_URL =
     ctx.textBaseline = "middle";
     ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 10);
 
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = "#ffffff";
     ctx.font = "16px sans-serif";
-    ctx.fillText(`Score : ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+    ctx.fillText(
+      `Score : ${score}`,
+      canvas.width / 2,
+      canvas.height / 2 + 20
+    );
   }
 
   // ==========================
@@ -675,6 +851,7 @@ const LEADERBOARD_API_URL =
   function setSpeedMode(mode) {
     if (!SPEEDS[mode]) return;
     if (running) {
+      // on ne change pas la vitesse en pleine partie
       console.log("[Snake] Changement de vitesse ignoré (partie en cours)");
       return;
     }
@@ -729,6 +906,7 @@ const LEADERBOARD_API_URL =
       container && !container.classList.contains("snake-hidden");
     if (!snakeVisible) return;
 
+    // 1/2/3 : changer la vitesse avant de démarrer
     if (key === "1" || key === "2" || key === "3") {
       if (!running && !gameOverFlag) {
         if (key === "1") setSpeedMode("lent");
@@ -750,6 +928,7 @@ const LEADERBOARD_API_URL =
 
     if (!isDirKey) return;
 
+    // Empêche la page de scroller avec les flèches
     if (
       key === "ArrowUp" ||
       key === "ArrowDown" ||
@@ -759,16 +938,18 @@ const LEADERBOARD_API_URL =
       e.preventDefault();
     }
 
-    // démarrage / restart
+    // Démarrage / restart
     if (!running) {
       if (gameOverFlag) {
         resetGame();
       }
       runStartTime = Date.now();
+      lastFrameTime = runStartTime;
       running = true;
       restartGameInterval();
     }
 
+    // Changement de direction (sans demi-tour direct)
     if (key === "ArrowUp" || key === "z") {
       if (snakeDir.y === 1) return;
       nextDir = { x: 0, y: -1 };
