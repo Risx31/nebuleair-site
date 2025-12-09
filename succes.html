@@ -1,23 +1,19 @@
-rar<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Succès & Bonus – NebuleSnake</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
+  <title>Succès & Bonus NebuleSnake</title>
   <style>
     :root {
       --bg: #020617;
-      --bg-soft: #020617;
-      --panel: #020617;
-      --panel-elevated: #020817;
+      --panel-bg: #020617;
       --accent: #22c55e;
-      --accent-soft: rgba(34, 197, 94, 0.16);
+      --accent-soft: rgba(34, 197, 94, 0.18);
       --text: #e5e7eb;
       --muted: #9ca3af;
       --border: #1f2937;
-      --shadow-soft: 0 22px 45px rgba(0, 0, 0, 0.65);
-      --radius-lg: 20px;
+      --shadow-soft: 0 25px 60px rgba(0, 0, 0, 0.7);
+      --radius-lg: 18px;
     }
 
     * {
@@ -30,25 +26,14 @@ rar<!DOCTYPE html>
 
     body {
       min-height: 100vh;
-      background:
-        radial-gradient(circle at top, #0b1120 0, #020617 45%, #000 100%);
+      background: radial-gradient(circle at top, #0b1120 0, #020617 55%, #020617 100%);
       color: var(--text);
-      display: flex;
-      justify-content: center;
-      padding: 24px 12px;
+      padding: 24px 16px 32px;
     }
 
     .page {
-      width: 100%;
       max-width: 960px;
-    }
-
-    /* Top nav -------------------------------------------------------- */
-
-    .top-nav {
-      display: flex;
-      align-items: center;
-      margin-bottom: 16px;
+      margin: 0 auto;
     }
 
     .back-link {
@@ -58,572 +43,432 @@ rar<!DOCTYPE html>
       font-size: 14px;
       color: var(--muted);
       text-decoration: none;
-      padding: 4px 10px;
-      border-radius: 999px;
-      transition: background 0.15s, color 0.15s;
+      margin-bottom: 12px;
+    }
+    .back-link:hover {
+      color: var(--text);
     }
 
     .back-link span:first-child {
       font-size: 18px;
     }
 
-    .back-link:hover {
-      background: rgba(148, 163, 184, 0.16);
-      color: #e5e7eb;
-    }
-
-    /* Main panel ----------------------------------------------------- */
-
     .panel {
-      background: linear-gradient(145deg, #020617 0%, #020617 50%, #020617 100%);
+      background: radial-gradient(circle at top left, #020617 0, #020617 65%);
       border-radius: 24px;
-      border: 1px solid rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(30, 64, 175, 0.6);
       box-shadow: var(--shadow-soft);
       padding: 20px 22px 22px;
     }
 
     .panel-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
+      align-items: center;
       gap: 12px;
+      margin-bottom: 10px;
     }
 
     .panel-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .logo-pill {
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 30% 30%, #bbf7d0 0, #22c55e 50%, #16a34a 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #020617;
-      font-size: 20px;
-      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.8),
-        0 12px 30px rgba(22, 163, 74, 0.45);
-    }
-
-    .panel-title h1 {
       font-size: 22px;
+      font-weight: 700;
       letter-spacing: 0.03em;
-      font-weight: 650;
     }
 
-    .panel-title small {
-      display: block;
-      font-size: 12px;
+    .panel-title span {
+      color: var(--accent);
+      margin-left: 6px;
+    }
+
+    .panel-subtitle {
+      font-size: 13px;
       color: var(--muted);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-top: 2px;
-    }
-
-    .tag {
-      font-size: 12px;
-      border-radius: 999px;
-      padding: 4px 10px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      color: var(--muted);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(15, 23, 42, 0.8);
-    }
-
-    .tag-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
     }
 
     .panel-intro {
-      font-size: 14px;
+      font-size: 13px;
+      line-height: 1.5;
       color: var(--muted);
-      margin-bottom: 18px;
-      line-height: 1.6;
+      margin-bottom: 10px;
     }
 
-    .panel-intro strong {
-      color: #e5e7eb;
-      font-weight: 550;
-    }
-
-    /* Sections ------------------------------------------------------- */
-
-    .section-title {
-      font-size: 15px;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: var(--muted);
-      margin: 24px 0 10px;
-    }
-
-    .section-title span {
-      color: var(--accent);
-      margin-right: 8px;
-    }
-
-    .achievements-grid {
+    /* Stats globales */
+    .stats-bar {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      gap: 10px;
+      margin: 4px 0 14px;
     }
 
-    @media (max-width: 720px) {
-      .panel {
-        padding: 18px 14px 18px;
-      }
-      .achievements-grid {
-        grid-template-columns: 1fr;
-      }
+    .stats-card {
+      background: radial-gradient(circle at top left, #0b1120 0, #020617 75%);
+      border-radius: 14px;
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      padding: 8px 10px 9px;
+    }
+
+    .stats-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+
+    .stats-value {
+      font-size: 18px;
+      font-weight: 650;
+      color: #e5e7eb;
+    }
+
+    /* Sections */
+    .section-title {
+      font-size: 16px;
+      font-weight: 650;
+      margin: 18px 0 6px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .section-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .achievements-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
     }
 
     .achievement-card {
-      background: radial-gradient(circle at top left, #111827 0, #020617 60%);
-      border-radius: 16px;
-      border: 1px solid rgba(31, 41, 55, 0.9);
-      padding: 10px 12px 11px;
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 10px;
-      align-items: flex-start;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      padding: 8px 10px 9px;
     }
 
-    .achievement-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.95);
+    .achievement-title {
+      font-size: 13px;
+      font-weight: 600;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      box-shadow: 0 0 0 1px rgba(55, 65, 81, 0.9);
-    }
-
-    .achievement-body h3 {
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
+      gap: 6px;
       margin-bottom: 4px;
     }
 
-    .achievement-body .subtitle {
-      font-size: 12px;
+    .achievement-title span.emoji {
+      font-size: 15px;
+    }
+
+    .achievement-subtitle {
+      font-size: 11px;
       color: var(--muted);
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
 
-    .achievement-body p {
-      font-size: 13px;
-      line-height: 1.5;
-      color: #d1d5db;
-    }
-
-    .conditions {
-      margin-top: 4px;
+    .achievement-text {
       font-size: 12px;
-      color: #9ca3af;
-    }
-
-    .conditions span {
+      line-height: 1.4;
       color: #e5e7eb;
     }
 
-    .difficulty-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.96);
-      border: 1px solid rgba(55, 65, 81, 0.95);
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-
-    .difficulty-pill strong {
-      color: #f97316;
-      font-weight: 600;
-    }
-
-    /* Bonus cards ---------------------------------------------------- */
-
-    .bonus-grid {
+    .bonus-list {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-    }
-
-    @media (max-width: 720px) {
-      .bonus-grid {
-        grid-template-columns: 1fr;
-      }
+      margin-top: 6px;
     }
 
     .bonus-card {
-      background: #020617;
-      border-radius: 14px;
-      border: 1px solid rgba(31, 41, 55, 0.85);
-      padding: 9px 11px 10px;
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 8px;
-      align-items: flex-start;
-    }
-
-    .bonus-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       background: rgba(15, 23, 42, 0.9);
-      font-size: 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      padding: 8px 10px 9px;
+      font-size: 12px;
     }
 
-    .bonus-body h3 {
-      font-size: 13px;
-      margin-bottom: 2px;
+    .bonus-title {
       display: flex;
-      justify-content: space-between;
       align-items: center;
       gap: 6px;
+      font-weight: 600;
+      margin-bottom: 3px;
     }
 
-    .rarity-pill {
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      background: rgba(30, 64, 175, 0.3);
-      border: 1px solid rgba(129, 140, 248, 0.6);
-      color: #c7d2fe;
-      white-space: nowrap;
+    .bonus-title span.emoji {
+      font-size: 15px;
     }
 
-    .bonus-body p {
-      font-size: 12px;
-      color: #d1d5db;
-      line-height: 1.5;
+    .bonus-text {
+      color: #e5e7eb;
+      line-height: 1.4;
     }
 
-    .bonus-note {
-      margin-top: 3px;
+    .rarity {
       font-size: 11px;
       color: var(--muted);
+      margin-top: 2px;
     }
 
-    .footer-note {
-      margin-top: 18px;
-      font-size: 11px;
-      color: #64748b;
-      text-align: right;
+    @media (max-width: 720px) {
+      .achievements-list,
+      .bonus-list,
+      .stats-bar {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="top-nav">
-      <a href="dashboard.html" class="back-link">
-        <span>←</span>
-        <span>Retour au dashboard</span>
-      </a>
-    </div>
+    <a href="dashboard.html" class="back-link">
+      <span>←</span>
+      <span>Retour au dashboard</span>
+    </a>
 
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">
-          <div class="logo-pill">🐍</div>
-          <div>
-            <h1>Succès & Bonus NebuleSnake</h1>
-            <small>Défis secrets & pouvoirs spéciaux</small>
+        <div>
+          <div class="panel-title">
+            Succès & Bonus <span>NebuleSnake</span>
           </div>
-        </div>
-        <div class="tag">
-          <span class="tag-dot"></span>
-          <span>Mode expérimental</span>
+          <div class="panel-subtitle">
+            Pour les vrais tryharders de la pollution 🐍
+          </div>
         </div>
       </div>
 
       <p class="panel-intro">
-        Chaque <strong>succès de run</strong> est vérifié à la fin d’une partie.
-        Si les conditions sont remplies, une petite icône s’affichera
-        <strong>à côté de ton score</strong> dans le classement mondial.  
-        Les bonus et pommes spéciales apparaissent directement sur la grille du Snake.
+        Chaque succès est vérifié à la fin d’une partie. Quand tu le débloques,
+        un petit badge s’affiche à côté de ton score dans le classement mondial.
+        Cette page affiche aussi les stats <strong>globales</strong> de tous les joueurs.
       </p>
 
-      <!-- ========================================================= -->
-      <!-- SUCCÈS DE RUN -->
-      <!-- ========================================================= -->
-      <h2 class="section-title"><span>◆</span>Succès de run</h2>
-
-      <div class="achievements-grid">
-
-        <!-- PERMA-TURBO -->
-        <article class="achievement-card">
-          <div class="achievement-icon">⚡</div>
-          <div class="achievement-body">
-            <h3>PERMA-TURBO</h3>
-            <div class="subtitle">Rester en hyper-vitesse.</div>
-            <p>
-              Garde le bonus <strong>Turbo contrôlé</strong> actif pendant une bonne
-              partie de la run, sans tout envoyer dans le mur. (je sais même pas si c'est possible)
-            </p>
-            <p class="conditions">
-              Conditions : Turbo actif <span>≥ 50&nbsp;%</span> du temps de jeu,
-              score <span>≥ 40</span>.
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★ ★ ★ ★ ★</strong><span>Impossible</span>
-            </div>
+      <!-- Stats globales -->
+      <div class="stats-bar">
+        <div class="stats-card">
+          <div class="stats-label">Parties jouées (global)</div>
+          <div class="stats-value">
+            <span id="stats-total-games">0</span>
           </div>
-        </article>
-
-        <!-- GAMBLER -->
-        <article class="achievement-card">
-          <div class="achievement-icon">🎰</div>
-          <div class="achievement-body">
-            <h3>GAMBLER</h3>
-            <div class="subtitle">Build full casino.</div>
-            <p>
-              Tout pour la longeur, objectif remplir la map.
-            </p>
-            <p class="conditions">
-              Conditions : Prendre <span>≥ 1 Jackpot 💰</span> et
-              <span>≥ 1 Double ✨</span>, ne jamais prendre
-              <span>Minceur ✂️</span>, score <span>≥ 50</span>.
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★ ★</strong><span>Difficile</span>
-            </div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-label">Temps total de jeu (global)</div>
+          <div class="stats-value">
+            <span id="stats-total-time">0 s</span>
           </div>
-        </article>
-
-        <!-- YOYO BODY -->
-        <article class="achievement-card">
-          <div class="achievement-icon">↕️</div>
-          <div class="achievement-body">
-            <h3>YOYO BODY</h3>
-            <div class="subtitle">Jouer avec ta propre masse.</div>
-            <p>
-              Tu gonfles le serpent au max… puis tu le remets en mode
-              «&nbsp;summer body&nbsp;» dans la même partie.
-            </p>
-            <p class="conditions">
-              Conditions : atteindre une longueur <span>≥ 25</span>,
-              puis redescendre à <span>≤ 8</span> cases dans la même run. (infernal)
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★ ★ ★ ★ ★</strong><span>Impossible</span>
-            </div>
-          </div>
-        </article>
-
-        <!-- APPLE RUSH -->
-        <article class="achievement-card">
-          <div class="achievement-icon">🍎</div>
-          <div class="achievement-body">
-            <h3>APPLE RUSH</h3>
-            <div class="subtitle">Sprint sous turbo.</div>
-            <p>
-              Profite du turbo pour ramasser une pluie de pommes sans perdre le
-              contrôle de la trajectoire. #AccidentDeLaRoute
-            </p>
-            <p class="conditions">
-              Conditions : manger <span>≥ 10 pommes</span> pendant qu’un
-              <span>Turbo ⚡</span> est actif.
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★ ★</strong><span>Difficile</span>
-            </div>
-          </div>
-        </article>
-
-        <!-- STORM RIDER -->
-        <article class="achievement-card">
-          <div class="achievement-icon">🌩️</div>
-          <div class="achievement-body">
-            <h3>STORM RIDER</h3>
-            <div class="subtitle">Survivre à la pluie dorée.</div>
-            <p>
-              Manger 3 pommes dorées, ca joue juste à la chance.
-            </p>
-            <p class="conditions">
-              Conditions : manger <span>≥ 3 pommes dorées 🍏</span>,
-              score <span>≥ 70</span> et longueur max <span>≥ 25</span>.
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★ ★ ★</strong><span>Très difficile</span>
-            </div>
-          </div>
-        </article>
-
-        <!-- FULL HOUSE -->
-        <article class="achievement-card">
-          <div class="achievement-icon">🃏</div>
-          <div class="achievement-body">
-            <h3>FULL HOUSE</h3>
-            <div class="subtitle">Tout miser, tout gérer.</div>
-            <p>
-              Utiliser chaque type de bonus au moins une fois,
-              tout en profitant des pommes dorées. #KeepGambling
-            </p>
-            <p class="conditions">
-              Conditions : prendre au moins 1 fois chaque bonus
-              <span>(⚡, ✨, 💰, ✂️)</span> et manger
-              <span>≥ 2 pommes dorées 🍏</span>, score <span>≥ 80</span>.
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★ ★ ★ ★</strong><span>Extrême</span>
-            </div>
-          </div>
-        </article>
-
-        <!-- MARATHON RUN -->
-        <article class="achievement-card">
-          <div class="achievement-icon">🏃‍♂️</div>
-          <div class="achievement-body">
-            <h3>MARATHON RUN</h3>
-            <div class="subtitle">Tenir la distance.</div>
-            <p>
-              Garder le serpent en vie suffisamment longtemps pour que la
-              partie devienne un vrai run d’endurance. (ca va être long)
-            </p>
-            <p class="conditions">
-              Conditions : survivre <span>≥ 3 minutes</span> dans une seule
-              partie, avec un score <span>≥ 100</span>.
-            </p>
-            <div class="difficulty-pill">
-              <strong>★ ★</strong><span>Juste long</span>
-            </div>
-          </div>
-        </article>
+        </div>
       </div>
 
-      <!-- ========================================================= -->
-      <!-- BONUS & POMMES SPÉCIALES -->
-      <!-- ========================================================= -->
-      <h2 class="section-title"><span>◆</span>Bonus & pommes spéciales</h2>
-
-      <p class="panel-intro" style="margin-top:-4px;margin-bottom:12px;">
-        Voici les bonus qui peuvent apparaître sur la grille.  
-        Ils sont rares, temporaires, et certains peuvent totalement changer une run.
+      <!-- Succès de run -->
+      <h2 class="section-title">Succès de run</h2>
+      <p class="section-sub">
+        Succès checkés sur une seule partie.
       </p>
 
-      <div class="bonus-grid">
-        <!-- Turbo contrôlé -->
-        <article class="bonus-card">
-          <div class="bonus-icon">⚡</div>
-          <div class="bonus-body">
-            <h3>
-              Turbo contrôlé
-              <span class="rarity-pill">Rareté&nbsp;: ~2&nbsp;%</span>
-            </h3>
-            <p>
-              Accélère fortement le serpent pendant environ
-              <strong>5&nbsp;secondes</strong> et ajoute
-              <strong>+1&nbsp;point par pomme</strong> mangée pendant l’effet.
-            </p>
-            <p class="bonus-note">
-              Parfait pour <em>APPLE RUSH</em>, dangereux pour le karma.
-            </p>
+      <div class="achievements-list">
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">⚡</span>
+            <span>PERMA-TURBO</span>
           </div>
-        </article>
+          <div class="achievement-subtitle">Rester sous stéroïdes.</div>
+          <div class="achievement-text">
+            Rester en turbo au moins la moitié de la partie, avec
+            <strong>turbo actif ≥ 50&nbsp;% du temps de jeu</strong> et
+            <strong>score ≥ 40</strong>.
+          </div>
+        </div>
 
-        <!-- Double Score -->
-        <article class="bonus-card">
-          <div class="bonus-icon">✨</div>
-          <div class="bonus-body">
-            <h3>
-              Double Score
-              <span class="rarity-pill">Rareté&nbsp;: ~3&nbsp;%</span>
-            </h3>
-            <p>
-              Toutes les pommes rapportent
-              <strong>2&nbsp;points</strong> pendant environ
-              <strong>10&nbsp;secondes</strong>.  
-              Se cumule avec le bonus Turbo pour des gains monstrueux.
-            </p>
-            <p class="bonus-note">
-              Idéal pour monter très vite sur le classement.
-            </p>
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">🎰</span>
+            <span>GAMBLER</span>
           </div>
-        </article>
+          <div class="achievement-subtitle">Build full casino.</div>
+          <div class="achievement-text">
+            Prendre au moins <strong>1 Jackpot 💰</strong> et
+            <strong>2 Double ✨</strong>, ne jamais prendre Minceur ✂️
+            et finir avec un <strong>score ≥ 50</strong>.
+          </div>
+        </div>
 
-        <!-- Jackpot -->
-        <article class="bonus-card">
-          <div class="bonus-icon">💰</div>
-          <div class="bonus-body">
-            <h3>
-              Jackpot
-              <span class="rarity-pill">Rareté&nbsp;: ~4&nbsp;%</span>
-            </h3>
-            <p>
-              Donne immédiatement un <strong>gros bonus de score</strong>
-              (par exemple +5) sans changer la longueur du serpent.
-            </p>
-            <p class="bonus-note">
-              Le meilleur ami des joueurs pressés, clé du succès <em>GAMBLER</em>.
-            </p>
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">🏋️</span>
+            <span>YOYO BODY</span>
           </div>
-        </article>
+          <div class="achievement-subtitle">Jouer avec ta propre masse.</div>
+          <div class="achievement-text">
+            Atteindre une <strong>longueur ≥ 25</strong>, puis reperdre au moins
+            <strong>8 cases</strong> dans la même partie.
+          </div>
+        </div>
 
-        <!-- Minceur express -->
-        <article class="bonus-card">
-          <div class="bonus-icon">✂️</div>
-          <div class="bonus-body">
-            <h3>
-              Minceur express
-              <span class="rarity-pill">Rareté&nbsp;: ~5&nbsp;%</span>
-            </h3>
-            <p>
-              Coupe brutalement quelques segments de la queue
-              (jusqu’à <strong>4 cases</strong>) pour te donner un peu d’air.
-            </p>
-            <p class="bonus-note">
-              Sauve la run quand tu es trop long… mais annule le succès
-              <em>GAMBLER</em> si tu le prends.
-            </p>
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">🏃‍♂️</span>
+            <span>APPLE RUSH</span>
           </div>
-        </article>
+          <div class="achievement-subtitle">Sprint sous turbo.</div>
+          <div class="achievement-text">
+            Sous turbo actif, manger au moins
+            <strong>10 pommes</strong> pendant qu’un bonus turbo est encore en cours.
+          </div>
+        </div>
 
-        <!-- Pomme dorée -->
-        <article class="bonus-card">
-          <div class="bonus-icon">🍏</div>
-          <div class="bonus-body">
-            <h3>
-              Pomme dorée
-              <span class="rarity-pill">Rareté&nbsp;: ~1&nbsp;%</span>
-            </h3>
-            <p>
-              Une pomme spéciale, <strong>temporaire</strong> :
-              si tu la manges à temps, elle fait apparaître
-              <strong>5 nouvelles pommes</strong> normales sur la grille.
-            </p>
-            <p class="bonus-note">
-              Indispensable pour les succès <em>STORM RIDER</em> et
-              <em>FULL HOUSE</em>.
-            </p>
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">⛈️</span>
+            <span>STORM RIDER</span>
           </div>
-        </article>
+          <div class="achievement-subtitle">Survivre à la pluie de dorées.</div>
+          <div class="achievement-text">
+            Manger <strong>≥ 3 pommes dorées 🍏</strong> dans une seule partie,
+            avec <strong>score ≥ 70</strong> et <strong>longueur max ≥ 25</strong>.
+          </div>
+        </div>
+
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">🧱</span>
+            <span>FULL HOUSE</span>
+          </div>
+          <div class="achievement-subtitle">Tout utiliser dans le même run.</div>
+          <div class="achievement-text">
+            Utiliser au moins <strong>1 fois chaque bonus</strong> (⚡ ✨ 💰 ✂️)
+            et manger <strong>≥ 2 pommes dorées 🍏</strong> avec un
+            <strong>score ≥ 80</strong>.
+          </div>
+        </div>
+
+        <div class="achievement-card">
+          <div class="achievement-title">
+            <span class="emoji">🏃‍♀️</span>
+            <span>MARATHON RUN</span>
+          </div>
+          <div class="achievement-subtitle">Tenir la distance.</div>
+          <div class="achievement-text">
+            Survivre <strong>≥ 3 minutes</strong> dans une seule partie, avec
+            un <strong>score ≥ 100</strong>.
+          </div>
+        </div>
       </div>
 
-      <p class="footer-note">
-        Astuce : les bonus disparaissent d’eux-mêmes après quelques secondes.
-        Si tu hésites trop, le destin choisit pour toi. 🐍
+      <!-- Bonus & pommes -->
+      <h2 class="section-title">Bonus & pommes spéciales</h2>
+      <p class="section-sub">
+        Petit résumé des bonus qui apparaissent sur la grille, avec leurs effets et leur rareté.
       </p>
+
+      <div class="bonus-list">
+        <div class="bonus-card">
+          <div class="bonus-title">
+            <span class="emoji">⚡</span>
+            <span>Turbo contrôlé</span>
+          </div>
+          <div class="bonus-text">
+            Accélère fortement le serpent pendant <strong>5 secondes</strong> et
+            ajoute <strong>+1 point</strong> par pomme mangée.
+          </div>
+          <div class="rarity">Rareté : ~2&nbsp;% après chaque pomme mangée.</div>
+        </div>
+
+        <div class="bonus-card">
+          <div class="bonus-title">
+            <span class="emoji">✨</span>
+            <span>Double Score</span>
+          </div>
+          <div class="bonus-text">
+            Toutes les pommes rapportent <strong>×2 points</strong> pendant
+            <strong>10 secondes</strong>.
+          </div>
+          <div class="rarity">Rareté : ~3&nbsp;%.</div>
+        </div>
+
+        <div class="bonus-card">
+          <div class="bonus-title">
+            <span class="emoji">💰</span>
+            <span>Jackpot</span>
+          </div>
+          <div class="bonus-text">
+            Donne directement <strong>+5 points</strong> quand tu le manges.
+          </div>
+          <div class="rarity">Rareté : ~4&nbsp;%.</div>
+        </div>
+
+        <div class="bonus-card">
+          <div class="bonus-title">
+            <span class="emoji">✂️</span>
+            <span>Minceur express</span>
+          </div>
+          <div class="bonus-text">
+            Coupe une partie de ta queue (jusqu’à 4 segments), pratique pour
+            se sortir d’un coin un peu trop serré.
+          </div>
+          <div class="rarity">Rareté : ~5&nbsp;%.</div>
+        </div>
+
+        <div class="bonus-card">
+          <div class="bonus-title">
+            <span class="emoji">🍏</span>
+            <span>Pomme dorée</span>
+          </div>
+          <div class="bonus-text">
+            Pomme spéciale qui, une fois mangée, fait apparaître
+            <strong>5 pommes normales</strong> d’un coup sur la grille.
+          </div>
+          <div class="rarity">Rareté : ~1&nbsp;% après une pomme mangée.</div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      const LEADERBOARD_API_URL =
+        "https://nebuleairproxy.onrender.com/snake/leaderboard";
+
+      function formatDuration(sec) {
+        sec = Math.max(0, Math.floor(Number(sec) || 0));
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        const parts = [];
+        if (h > 0) parts.push(h + " h");
+        if (m > 0 || h > 0) parts.push(m + " min");
+        parts.push(s + " s");
+        return parts.join(" ");
+      }
+
+      async function loadGlobalStats() {
+        const gamesEl = document.getElementById("stats-total-games");
+        const timeEl = document.getElementById("stats-total-time");
+        if (!gamesEl || !timeEl) return;
+
+        try {
+          const res = await fetch(LEADERBOARD_API_URL);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const stats = data.globalStats || {
+            totalGames: 0,
+            totalPlayTimeSec: 0
+          };
+
+          gamesEl.textContent = stats.totalGames ?? 0;
+          timeEl.textContent = formatDuration(stats.totalPlayTimeSec ?? 0);
+        } catch (e) {
+          console.warn("[Succès] Impossible de charger les stats globales", e);
+          gamesEl.textContent = "—";
+          timeEl.textContent = "—";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadGlobalStats);
+    })();
+  </script>
 </body>
 </html>
