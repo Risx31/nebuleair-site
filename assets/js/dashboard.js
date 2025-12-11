@@ -133,13 +133,23 @@ const mainChart = new Chart(ctx, {
         }
       },
       scales: {
-        x: {
-          type: "time",
-          time: {
-            tooltipFormat: "dd MMM yyyy HH:mm",
-            displayFormats: { minute: "HH:mm", hour: "dd/MM HH:mm", day: "dd MMM" }
-          }
-        },
+// ... dans options: { scales: { ...
+x: {
+  type: "time",
+  time: {
+    tooltipFormat: "dd/MM/yyyy HH:mm", // Format au survol souris
+    displayFormats: { 
+      minute: "HH:mm", 
+      hour: "dd/MM HH:mm", // Affiche "12/12 14:00" au lieu de "12 14h"
+      day: "dd MMM" 
+    }
+  },
+  title: {
+    display: true,
+    text: "Date et Heure"
+  }
+},
+// ...
         // --- AXE GAUCHE (Particules) ---
         y: {
           type: 'linear',
