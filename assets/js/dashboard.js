@@ -290,6 +290,7 @@ const mainChart = new Chart(ctx, {
     setCard("pm10-value", series.pm10, 1);
     setCard("temp-value", series.temperature, 1);
     setCard("hum-value", series.humidite, 0);
+    setCard("wifi-value", series.rssi, 0);
   }
 
   // ============================
@@ -361,7 +362,8 @@ const mainChart = new Chart(ctx, {
         fetchField("pm25"),
         fetchField("pm10"),
         fetchField("temperature"),
-        fetchField("humidite")
+        fetchField("humidite"),
+        fetchField("rssi")
       ]);
 
       const pm1 = results[0];
@@ -369,6 +371,7 @@ const mainChart = new Chart(ctx, {
       const pm10 = results[2];
       const temp = results[3];
       const hum = results[4];
+      const rssiData = results[5];
 
       // Timestamps de référence
       labelsRaw = pm1.labels.map(function (t) { return new Date(t); });
@@ -378,6 +381,7 @@ const mainChart = new Chart(ctx, {
       series.pm10 = pm10.values;
       series.temperature = temp.values;
       series.humidite = hum.values;
+      series.rssi = rssiData.values;
 
       updateCards();
       updateChart();
