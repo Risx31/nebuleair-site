@@ -18,7 +18,8 @@ document.addEventListener("DOMContentLoaded", function () {
     pm25: [],
     pm10: [],
     temperature: [],
-    humidite: []
+    humidite: [],
+    rssi: []
   };
 
   // ============================
