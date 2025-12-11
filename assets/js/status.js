@@ -83,17 +83,18 @@ function computeAQI(pm25) {
 }
 
 // ======================================
-//  STATUS LOADING
+//  STATUS LOADING (Version Corrigée)
 // ======================================
 
 async function loadStatus() {
-    // Fetch all last values en parallèle
-    const [pm1, pm25, pm10, temp, hum] = await Promise.all([
+    // 1. On ajoute "rssi" (ou "RSSI") à la liste des requêtes
+    const [pm1, pm25, pm10, temp, hum, rssi] = await Promise.all([
         getLatest("pm1"),
         getLatest("pm25"),
         getLatest("pm10"),
         getLatest("temperature"),
-        getLatest("humidite")
+        getLatest("humidite"),
+        getLatest("rssi") // <--- Vérifiez ici aussi le nom du champ (ex: "RSSI")
     ]);
 
     // Valeurs des cartes
@@ -107,15 +108,19 @@ async function loadStatus() {
     document.getElementById("statusHum").innerText =
         hum.value !== null ? `${hum.value} %` : "--";
 
-    // Dernière mise à jour = time le plus récent parmi tous les champs
-    const times = [pm1.time, pm25.time, pm10.time, temp.time, hum.time].filter(Boolean);
+    // Mise à jour du RSSI
+    document.getElementById("statusRSSI").innerText = 
+        rssi.value !== null ? `${rssi.value} dBm` : "--";
+
+    // Dernière mise à jour = time le plus récent
+    const times = [pm1.time, pm25.time, pm10.time, temp.time, hum.time, rssi.time].filter(Boolean);
     const last = times.length ? times.reduce((a, b) => (a > b ? a : b)) : null;
 
     document.getElementById("statusLastUpdate").innerText = last
         ? formatDateTime(last)
         : "--";
 
-    // Uptime estimé = temps écoulé depuis cette dernière mesure
+    // Uptime
     if (last) {
         const t = new Date(last);
         const diffMs = Date.now() - t.getTime();
@@ -132,21 +137,13 @@ async function loadStatus() {
     document.getElementById("statusAQI").innerText        = aqi.aqi ?? "--";
     document.getElementById("statusAQIMessage").innerText = aqi.message;
 
-    // Santé des capteurs (logique simple)
+    // Indicateurs OK/Erreur
     document.getElementById("statusNextPM").innerText =
-        (pm1.value !== null || pm25.value !== null || pm10.value !== null)
-            ? "OK"
-            : "Erreur";
+        (pm1.value !== null || pm25.value !== null || pm10.value !== null) ? "OK" : "Erreur";
 
     document.getElementById("statusBME").innerText =
-        (temp.value !== null && hum.value !== null)
-            ? "OK"
-            : "Erreur";
-
-    // RSSI (à remplir plus tard si tu l’envoies dans Influx)
-    document.getElementById("statusRSSI").innerText = "--";
+        (temp.value !== null && hum.value !== null) ? "OK" : "Erreur";
 }
 
-// Auto-refresh toutes les 15 s
 setInterval(loadStatus, 15000);
 loadStatus();
