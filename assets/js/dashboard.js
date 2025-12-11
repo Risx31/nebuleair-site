@@ -281,17 +281,30 @@ x: {
     }
   }
 
-  async function fetchField(field) {
-    const rangeClause = buildRangeClause();
-    const every = getWindowEvery();
+async function fetchField(fieldName) {
+  let rangeFlux = "";
 
-    const fluxQuery =
-`from(bucket: "${BUCKET}")
-  ${rangeClause}
-  |> filter(fn: (r) => r._measurement == "nebuleair")
-  |> filter(fn: (r) => r._field == "${field}")
-  |> aggregateWindow(every: ${every}, fn: mean, createEmpty: false)
-  |> yield()`;
+  // GESTION DU TEMPS : Relatif ou Absolu
+  if (currentRange === "custom" && customStart && customStop) {
+    // Conversion en format ISO pour InfluxDB (ex: 2023-12-12T08:00:00Z)
+    const startISO = customStart.toISOString();
+    const stopISO = customStop.toISOString();
+    rangeFlux = `|> range(start: time(v: "${startISO}"), stop: time(v: "${stopISO}"))`;
+  } else {
+    // Par défaut (1h, 24h, 7d...)
+    // Assurez-vous que currentRange contient bien "-1h", "-24h" etc. 
+    // Si currentRange vaut juste "1h", ajoutez le tiret : `-${currentRange}`
+    let duration = currentRange.startsWith("-") ? currentRange : `-${currentRange}`;
+    rangeFlux = `|> range(start: ${duration})`;
+  }
+
+  // Construction de la requête complète
+  const fluxQuery = `from(bucket: "${BUCKET}")
+    ${rangeFlux}
+    |> filter(fn: (r) => r["_measurement"] == "nebuleair")
+    |> filter(fn: (r) => r["_field"] == "${fieldName}")
+    |> aggregateWindow(every: 10m, fn: mean, createEmpty: false) // Moyenne glissante pour lisser
+    |> yield(name: "mean")`;
 
     const response = await fetch(INFLUX_URL, {
       method: "POST",
