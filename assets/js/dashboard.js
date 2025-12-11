@@ -9,29 +9,6 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentRange = "1h";
   let customRange = null;
 
-  // Variable globale pour stocker les dates personnalisées
-let customStart = null;
-let customStop = null;
-
-// Initialisation de Flatpickr sur l'input #dateRange
-flatpickr("#dateRange", {
-    mode: "range", // Mode plage (Début à Fin)
-    dateFormat: "Y-m-d",
-    enableTime: true, // Activer l'heure si voulu (optionnel)
-    time_24hr: true,
-    onChange: function(selectedDates) {
-        // On attend d'avoir les 2 dates (début et fin)
-        if (selectedDates.length === 2) {
-            customStart = selectedDates[0];
-            customStop = selectedDates[1];
-            
-            // On passe en mode "custom" et on recharge
-            currentRange = "custom";
-            loadAllData(); 
-        }
-    }
-});
-  
   // Timestamps bruts (Date)
   let labelsRaw = [];
 
@@ -156,23 +133,13 @@ const mainChart = new Chart(ctx, {
         }
       },
       scales: {
-// ... dans options: { scales: { ...
-x: {
-  type: "time",
-  time: {
-    tooltipFormat: "dd/MM/yyyy HH:mm", // Format au survol souris
-    displayFormats: { 
-      minute: "HH:mm", 
-      hour: "dd/MM HH:mm", // Affiche "12/12 14:00" au lieu de "12 14h"
-      day: "dd MMM" 
-    }
-  },
-  title: {
-    display: true,
-    text: "Date et Heure"
-  }
-},
-// ...
+        x: {
+          type: "time",
+          time: {
+            tooltipFormat: "dd MMM yyyy HH:mm",
+            displayFormats: { minute: "HH:mm", hour: "dd HH'h'", day: "dd MMM" }
+          }
+        },
         // --- AXE GAUCHE (Particules) ---
         y: {
           type: 'linear',
@@ -281,30 +248,17 @@ x: {
     }
   }
 
-async function fetchField(fieldName) {
-  let rangeFlux = "";
+  async function fetchField(field) {
+    const rangeClause = buildRangeClause();
+    const every = getWindowEvery();
 
-  // GESTION DU TEMPS : Relatif ou Absolu
-  if (currentRange === "custom" && customStart && customStop) {
-    // Conversion en format ISO pour InfluxDB (ex: 2023-12-12T08:00:00Z)
-    const startISO = customStart.toISOString();
-    const stopISO = customStop.toISOString();
-    rangeFlux = `|> range(start: time(v: "${startISO}"), stop: time(v: "${stopISO}"))`;
-  } else {
-    // Par défaut (1h, 24h, 7d...)
-    // Assurez-vous que currentRange contient bien "-1h", "-24h" etc. 
-    // Si currentRange vaut juste "1h", ajoutez le tiret : `-${currentRange}`
-    let duration = currentRange.startsWith("-") ? currentRange : `-${currentRange}`;
-    rangeFlux = `|> range(start: ${duration})`;
-  }
-
-  // Construction de la requête complète
-  const fluxQuery = `from(bucket: "${BUCKET}")
-    ${rangeFlux}
-    |> filter(fn: (r) => r["_measurement"] == "nebuleair")
-    |> filter(fn: (r) => r["_field"] == "${fieldName}")
-    |> aggregateWindow(every: 10m, fn: mean, createEmpty: false) // Moyenne glissante pour lisser
-    |> yield(name: "mean")`;
+    const fluxQuery =
+`from(bucket: "${BUCKET}")
+  ${rangeClause}
+  |> filter(fn: (r) => r._measurement == "nebuleair")
+  |> filter(fn: (r) => r._field == "${field}")
+  |> aggregateWindow(every: ${every}, fn: mean, createEmpty: false)
+  |> yield()`;
 
     const response = await fetch(INFLUX_URL, {
       method: "POST",
