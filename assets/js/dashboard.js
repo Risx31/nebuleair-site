@@ -137,7 +137,7 @@ const mainChart = new Chart(ctx, {
           type: "time",
           time: {
             tooltipFormat: "dd MMM yyyy HH:mm",
-            displayFormats: { minute: "HH:mm", hour: "dd HH'h'", day: "dd MMM" }
+            displayFormats: { minute: "HH:mm", hour: "dd/MM HH:mm", day: "dd MMM" }
           }
         },
         // --- AXE GAUCHE (Particules) ---
