@@ -9,6 +9,29 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentRange = "1h";
   let customRange = null;
 
+  // Variable globale pour stocker les dates personnalisées
+let customStart = null;
+let customStop = null;
+
+// Initialisation de Flatpickr sur l'input #dateRange
+flatpickr("#dateRange", {
+    mode: "range", // Mode plage (Début à Fin)
+    dateFormat: "Y-m-d",
+    enableTime: true, // Activer l'heure si voulu (optionnel)
+    time_24hr: true,
+    onChange: function(selectedDates) {
+        // On attend d'avoir les 2 dates (début et fin)
+        if (selectedDates.length === 2) {
+            customStart = selectedDates[0];
+            customStop = selectedDates[1];
+            
+            // On passe en mode "custom" et on recharge
+            currentRange = "custom";
+            loadAllData(); 
+        }
+    }
+});
+  
   // Timestamps bruts (Date)
   let labelsRaw = [];
 
