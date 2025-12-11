@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const ctx = canvas.getContext("2d");
 
-  const mainChart = new Chart(ctx, {
+const mainChart = new Chart(ctx, {
     type: "line",
     data: {
       datasets: [
@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
           borderWidth: 2,
           tension: 0.25,
           fill: true,
+          yAxisID: 'y', // <--- Axe Gauche
           spanGaps: false
         },
         {
@@ -56,6 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
           borderWidth: 2,
           tension: 0.25,
           fill: true,
+          yAxisID: 'y', // <--- Axe Gauche
           spanGaps: false
         },
         {
@@ -66,6 +68,7 @@ document.addEventListener("DOMContentLoaded", function () {
           borderWidth: 2,
           tension: 0.25,
           fill: true,
+          yAxisID: 'y', // <--- Axe Gauche
           spanGaps: false
         },
         {
@@ -76,6 +79,7 @@ document.addEventListener("DOMContentLoaded", function () {
           borderWidth: 2,
           tension: 0.25,
           fill: true,
+          yAxisID: 'y1', // <--- Axe Droite (Météo)
           spanGaps: false
         },
         {
@@ -86,6 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
           borderWidth: 2,
           tension: 0.25,
           fill: true,
+          yAxisID: 'y1', // <--- Axe Droite (Météo)
           spanGaps: false
         }
       ]
@@ -98,44 +103,65 @@ document.addEventListener("DOMContentLoaded", function () {
         intersect: false
       },
       plugins: {
-        legend: {
-          position: "top",
-          labels: { usePointStyle: true }
-        },
+        legend: { position: "top", labels: { usePointStyle: true } },
         tooltip: {
           mode: "index",
           intersect: false,
           callbacks: {
+            // Affiche l'unité dans l'infobulle pour plus de clarté
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y.toFixed(1);
+                if (label.includes("PM")) label += " µg/m³";
+                else if (label.includes("Temp")) label += " °C";
+                else if (label.includes("Hum")) label += " %";
+              }
+              return label;
+            },
             title: function (items) {
               if (!items.length) return "";
               const x = items[0].parsed.x;
               return new Date(x).toLocaleString("fr-FR", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit"
+                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
               });
             }
           }
         }
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: "Valeur"
-          }
-        },
         x: {
           type: "time",
           time: {
             tooltipFormat: "dd MMM yyyy HH:mm",
-            displayFormats: {
-              minute: "HH:mm",
-              hour: "dd MMM HH'h'",
-              day: "dd MMM"
-            }
+            displayFormats: { minute: "HH:mm", hour: "dd HH'h'", day: "dd MMM" }
+          }
+        },
+        // --- AXE GAUCHE (Particules) ---
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: "Concentration (µg/m³)"
+          }
+        },
+        // --- AXE DROITE (Temp / Hum) ---
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          grid: {
+            drawOnChartArea: false, // Évite d'avoir trop de lignes horizontales
+          },
+          title: {
+            display: true,
+            text: "Météo (°C / %)"
           }
         }
       }
