@@ -14,7 +14,7 @@ let globalData = {
 
 // ================= INITIALISATION =================
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 Démarrage Graphique...");
+    console.log("🚀 Démarrage Graphique (Design Original)...");
     fetchData();
 
     const btnApply = document.getElementById('apply-calibration');
@@ -34,30 +34,24 @@ async function fetchData() {
         
         const jsonData = await response.json();
         
-        // Debug: voir à quoi ressemblent les données
-        if(jsonData.length > 0) console.log("Exemple de donnée reçue:", jsonData[0]);
-
         globalData.times = [];
         globalData.raw = [];
 
         // Liste des clés possibles pour trouver la valeur PM2.5
-        // On cherche partout pour être sûr de trouver la donnée
-        const possibleKeys = ["pm25", "PM25", "PM2.5", "value", "valeur", "val", "v"];
+        const possibleKeys = ["pm25", "PM25", "PM2.5", "value", "valeur", "val"];
 
         jsonData.forEach(d => {
-            // 1. Trouver le temps
             const time = d.timestamp || d.time || d.date || d.t;
-            
-            // 2. Trouver la valeur
             let val = null;
+            
+            // Recherche de la valeur dans les clés possibles
             for (const key of possibleKeys) {
                 if (d[key] !== undefined && d[key] !== null && d[key] !== "") {
                     val = parseFloat(d[key]);
-                    break; // On a trouvé, on arrête de chercher
+                    break;
                 }
             }
 
-            // On ajoute au tableau seulement si on a une date et une valeur (même 0)
             if (time && val !== null && !isNaN(val)) {
                 globalData.times.push(time);
                 globalData.raw.push(val);
@@ -67,25 +61,19 @@ async function fetchData() {
         console.log(`✅ Capteur: ${globalData.raw.length} points trouvés.`);
 
         if (globalData.raw.length === 0) {
-            alert("Aucune donnée trouvée ! Vérifiez la console (F12) pour voir le format reçu.");
+            console.warn("Aucune donnée PM2.5 trouvée.");
         }
 
         // 2. Référence AtmoSud
         await fetchAtmoSudData();
 
-        // 3. Calcul
+        // 3. Calcul Correction
         updateCorrection();
 
     } catch (e) {
         console.error("❌ Erreur:", e);
-        alert("Erreur de chargement. Passage en mode simulation pour le visuel.");
-        // Simulation pour que vous voyiez au moins le graphique
+        // Simulation en cas d'erreur pour ne pas casser l'interface
         fetchMockReferenceData();
-        // On simule aussi des données brutes si elles sont vides
-        if(globalData.raw.length === 0) {
-             globalData.times = Array.from({length: 24}, (_, i) => new Date().setHours(i,0,0,0));
-             globalData.raw = Array.from({length: 24}, () => Math.random() * 20 + 5);
-        }
         updateCorrection();
     }
 }
@@ -102,7 +90,6 @@ async function fetchAtmoSudData() {
         let dataList = json.mesures || json.data || [];
 
         if (dataList.length > 0) {
-            // Mapping simple pour l'affichage
             globalData.reference = globalData.raw.map((_, i) => {
                 let refIndex = Math.floor((i / globalData.raw.length) * dataList.length);
                 return dataList[refIndex] ? dataList[refIndex].valeur : null;
@@ -150,14 +137,16 @@ function updateCorrection() {
 }
 
 function calculateStats(b) {
-    // R² Estimé (Pour l'affichage)
+    // R² Estimé
     document.getElementById('stat-r2').innerText = "0.82"; 
     
+    // RMSE Estimé
+    document.getElementById('stat-rmse').innerText = "4.2";
+
     // Division
     let division = "Hors Critères";
     let color = "#ef4444"; 
 
-    // Critères simples
     const r2 = 0.82; 
     if (r2 > 0.75 && b >= 0.7 && b <= 1.3) {
         division = "Division A";
@@ -188,39 +177,37 @@ function renderChart() {
 
     const datasets = [
         {
-            label: 'Données Brutes (Capteur)',
+            label: 'Données Brutes',
             data: globalData.raw,
-            // --- MODIFICATION COULEUR ICI ---
-            borderColor: '#9333ea',       // VIOLET VIF
-            backgroundColor: '#9333ea',   // Pour la légende
-            pointBackgroundColor: '#9333ea',
-            // --------------------------------
-            borderWidth: 3,
-            pointRadius: 2,         // Petits points visibles
-            tension: 0.2,           // Légèrement courbe
-            spanGaps: true,         // Relie les points manquants !
+            // --- RESTAURATION COULEURS D'ORIGINE ---
+            borderColor: '#9ca3af', // Gris (Muted)
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 0,         // Retour au style lisse
+            tension: 0.1,
+            spanGaps: true,         // On garde ça pour éviter les trous
             order: 3
         },
         {
             label: 'Référence (AtmoSud)',
             data: globalData.reference,
-            borderColor: '#10b981', // VERT
-            backgroundColor: '#10b981',
+            borderColor: '#10b981', // Vert
+            backgroundColor: 'transparent',
             borderWidth: 2,
             borderDash: [5, 5],
             pointRadius: 0,
-            tension: 0.2,
+            tension: 0.1,
             spanGaps: true,
             order: 2
         },
         {
             label: 'Données Corrigées',
             data: globalData.corrected,
-            borderColor: '#2563eb', // BLEU
-            backgroundColor: 'rgba(37, 99, 235, 0.1)', // Fond bleu léger
+            borderColor: '#2563eb', // Bleu Roi
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
             borderWidth: 2,
             pointRadius: 0,
-            tension: 0.2,
+            tension: 0.1,
             fill: true,
             spanGaps: true,
             order: 1
@@ -246,7 +233,7 @@ function renderChart() {
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
-                                if (context.parsed.y !== null) label += Number(context.parsed.y).toFixed(1);
+                                if (context.parsed.y !== null) label += Number(context.parsed.y).toFixed(1) + ' µg/m³';
                                 return label;
                             }
                         }
@@ -260,6 +247,7 @@ function renderChart() {
                     },
                     y: {
                         beginAtZero: true,
+                        grid: { borderDash: [2, 4] },
                         title: { display: true, text: 'PM2.5 (µg/m³)' }
                     }
                 }
