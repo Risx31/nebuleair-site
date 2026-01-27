@@ -44,15 +44,31 @@ async function fetchData() {
 
 // Fonction SIMULATION des données de référence (pour que le graphe fonctionne tout de suite)
 // Dans la réalité, remplacez ceci par un fetch vers l'API de la station "Marseille Longchamp"
-async function fetchMockReferenceData() {
-    // On génère une courbe de référence "idéale" qui serait proche du capteur mais décalée
-    // pour simuler le besoin de correction.
-    globalData.reference = globalData.raw.map(val => {
-        // Simulation : La référence est un peu plus basse et a moins de bruit
-        let refValue = (val * 0.85) - 2; 
-        if (refValue < 0) refValue = 0;
-        return refValue;
-    });
+// Dans assets/js/comparaison.js
+
+async function fetchAtmoSudData() {
+    // 1. Définir les paramètres (Station Marseille-Longchamp)
+    // ID technique de la station Longchamp : souvent "39" ou code "FR03043" (à vérifier dans leur doc)
+    const stationId = "39"; 
+    const apiKey = "01248e888c62e9a92fac58ae14802c14"; // Collez votre clé ici
+
+    // 2. Construire l'URL (Endpoint 'observations' pour les mesures horaires)
+    // Exemple d'URL (à adapter selon la doc exacte api.atmosud.org)
+    const url = `https://api.atmosud.org/observations/stations/${stationId}/polluants/39?date_debut=hier&date_fin=aujourdhui&token=${apiKey}`;
+
+    try {
+        const response = await fetch(url);
+        const json = await response.json();
+        
+        // 3. Adapter les données pour votre graphique
+        // (L'API renverra probablement un format différent qu'il faudra 'mapper')
+        globalData.reference = json.data.map(item => item.valeur); 
+        
+    } catch (e) {
+        console.error("Erreur AtmoSud :", e);
+        // Fallback sur la simulation si l'API échoue
+        fetchMockReferenceData(); 
+    }
 }
 
 // ======================================================
