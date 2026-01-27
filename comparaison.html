@@ -1,143 +1,98 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Calibration & Comparaison - NebuleAir</title>
-  
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NebuleAir – Calibration</title>
+    
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/comparaison.css">
+    <link rel="stylesheet" href="assets/css/dark.css">
 
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/dashboard.css">
-  <link rel="stylesheet" href="assets/css/dark.css">
-
-  <style>
-    /* Styles spécifiques à la page de comparaison */
-    .calibration-controls {
-      background: var(--card-bg);
-      border-radius: var(--radius-lg);
-      padding: 20px;
-      box-shadow: var(--shadow-soft);
-      margin-bottom: 18px;
-      display: flex;
-      gap: 24px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .control-group label {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .input-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .calib-input {
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      width: 100px;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--accent);
-      background: #f9fafb;
-    }
-
-    .formula-display {
-      margin-left: auto;
-      font-family: monospace;
-      background: #eff6ff;
-      color: var(--accent);
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      border: 1px solid rgba(37, 99, 235, 0.2);
-    }
-
-    .stats-panel {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-  </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+    <script src="assets/js/common.js" defer></script>
+    <script src="assets/js/comparaison.js" defer></script>
 </head>
-<body>
 
-  <div class="page">
-    <div class="header">
-      <a href="dashboard.html" class="back-link">
-        <span class="back-arrow">←</span>
-        <span>Retour au Dashboard</span>
-      </a>
-      <div class="title">Contrôle Métrologique (QA/QC)</div>
-      <div class="header-right">⚖️</div>
-    </div>
+<body class="light">
 
-    <div class="calibration-controls">
-      <div class="control-group">
-        <label for="coeff-pente">Pente (b)</label>
-        <div class="input-wrapper">
-          <input type="number" id="coeff-pente" class="calib-input" value="1.0" step="0.05">
+    <header class="topbar">
+        <div class="logo">
+            <a href="index.html" style="text-decoration:none; color:inherit;">NebuleAir</a>
+            <span style="font-size: 0.8em; opacity: 0.7; font-weight: normal;">/ Calibration</span>
         </div>
-      </div>
-
-      <div class="control-group">
-        <label for="coeff-offset">Ordonnée à l'origine (a)</label>
-        <div class="input-wrapper">
-          <input type="number" id="coeff-offset" class="calib-input" value="0.0" step="0.1">
+        <div class="topbar-right">
+            <a href="dashboard.html" class="nav-link">Dashboard</a>
+            <button id="themeToggle" class="theme-btn">🌙</button>
         </div>
-      </div>
+    </header>
 
-      <div class="control-group">
-        <button id="apply-calibration" class="btn-primary" style="height: 40px; margin-top: auto;">
-          Appliquer / Recalculer
-        </button>
-      </div>
+    <main class="page-container">
+        
+        <aside class="sidebar-controls">
+            <div class="sidebar-header">
+                <h2>Paramètres</h2>
+                <p>Ajustez les coefficients $a$ et $b$ pour corriger la dérive.</p>
+            </div>
 
-      <div class="formula-display">
-        Correction : Valeur_Corr = (Valeur_Brute - <span id="disp-a">0</span>) / <span id="disp-b">1</span>
-      </div>
-    </div>
+            <div class="input-group">
+                <label for="coeff-pente">Pente ($b$)</label>
+                <input type="number" id="coeff-pente" value="1.0" step="0.05">
+                <small>Multiplicateur (Gain)</small>
+            </div>
 
-    <div class="stats-panel">
-      <div class="card">
-        <div class="card-label">R² (Corrélation)</div>
-        <div class="card-value" id="stat-r2">--</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Division Estimée</div>
-        <div class="card-value" id="stat-division">--</div>
-        <div class="card-unit" style="margin-top:5px">Selon protocole AtmoSud</div>
-      </div>
-    </div>
+            <div class="input-group">
+                <label for="coeff-offset">Offset ($a$)</label>
+                <input type="number" id="coeff-offset" value="0.0" step="0.1">
+                <small>Décalage à l'origine</small>
+            </div>
 
-    <div class="chart-card" style="height: 500px;">
-      <div class="chart-container">
-        <canvas id="comparisonChart"></canvas>
-      </div>
-    </div>
+            <div class="formula-box">
+                $$C_{corr} = \frac{C_{brut} - a}{b}$$
+            </div>
 
-    <div class="bottom-actions">
-      <button id="export-data" class="btn-outline">
-        📤 Exporter Données Comparées (CSV)
-      </button>
-    </div>
-  </div>
+            <div class="actions">
+                <button id="apply-calibration" class="btn-primary">
+                    Calculer & Appliquer
+                </button>
+                <button id="export-data" class="btn-secondary">
+                    📥 Exporter CSV
+                </button>
+            </div>
+        </aside>
 
-  <script src="assets/js/comparaison.js"></script>
+        <section class="main-content">
+            
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <span class="kpi-label">Corrélation ($R^2$)</span>
+                    <span class="kpi-value" id="stat-r2">--</span>
+                    <span class="kpi-sub">Cible > 0.75</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">Erreur Moyenne (RMSE)</span>
+                    <span class="kpi-value" id="stat-rmse">--</span>
+                    <span class="kpi-sub">µg/m³</span>
+                </div>
+                <div class="kpi-card" id="card-division">
+                    <span class="kpi-label">Division AtmoSud</span>
+                    <span class="kpi-value" id="stat-division">--</span>
+                    <span class="kpi-sub">Performance Estimée</span>
+                </div>
+            </div>
+
+            <div class="chart-wrapper">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 </body>
 </html>
