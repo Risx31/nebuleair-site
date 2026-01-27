@@ -1,5 +1,7 @@
-// Configuration des APIs
+// URL de l'API fournie pour votre capteur
 const SENSOR_API_URL = "https://api.aircarto.fr/capteurs/dataNebuleAir?capteurID=nebuleair-pro101&start=-7d&end=now&freq=10m&format=JSON";
+
+// URL de base AtmoSud
 const ATMOSUD_BASE_URL = "https://api.atmosud.org/observations";
 
 let chartInstance = null;
@@ -12,6 +14,7 @@ let globalData = {
 
 // ================= INITIALISATION =================
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("🚀 Démarrage du script de comparaison...");
     fetchData();
 
     // Event Listeners
@@ -25,26 +28,55 @@ document.addEventListener('DOMContentLoaded', () => {
 // ================= DATA FETCHING =================
 async function fetchData() {
     try {
-        // 1. Capteur NebuleAir
+        // 1. Récupération Capteur NebuleAir
+        console.log(`🌐 Appel API Capteur : ${SENSOR_API_URL}`);
         const response = await fetch(SENSOR_API_URL);
+        
+        if (!response.ok) throw new Error(`Erreur HTTP Capteur: ${response.status}`);
+        
         const jsonData = await response.json();
+        console.log("📦 Données reçues (Premier élément):", jsonData[0]); // Pour voir la structure
 
-        globalData.times = jsonData.map(d => d.timestamp || d.time);
-        globalData.raw = jsonData.map(d => parseFloat(d.pm25 || d.PM25 || d.value || 0));
+        // Parsing Robuste : On cherche la valeur partout
+        globalData.times = [];
+        globalData.raw = [];
 
-        // 2. Référence AtmoSud
+        jsonData.forEach(d => {
+            // 1. Gestion du temps
+            const time = d.timestamp || d.time || d.date;
+            
+            // 2. Gestion de la valeur (PM2.5) - On essaie toutes les clés possibles
+            let val = d.pm25 || d.PM25 || d["PM2.5"] || d.value || d.valeur;
+            
+            // Si c'est une string, on convertit
+            if (typeof val === 'string') val = parseFloat(val);
+
+            // On ajoute seulement si on a un temps et une valeur valide
+            if (time && val !== undefined && !isNaN(val)) {
+                globalData.times.push(time);
+                globalData.raw.push(val);
+            }
+        });
+
+        console.log(`✅ ${globalData.raw.length} points valides trouvés pour le capteur.`);
+
+        if (globalData.raw.length === 0) {
+            console.warn("⚠️ Aucune donnée PM2.5 trouvée ! Vérifiez les noms de clés dans la console.");
+            alert("Données reçues mais illisibles (format inattendu). Regardez la console (F12).");
+        }
+
+        // 2. Récupération Référence AtmoSud
         await fetchAtmoSudData();
 
         // 3. Premier calcul
         updateCorrection();
 
     } catch (e) {
-        console.error("Erreur récupération:", e);
-        // Fallback simulation pour ne pas laisser la page vide en cas d'erreur
-        if(globalData.raw.length > 0) {
-            fetchMockReferenceData();
-            updateCorrection();
-        }
+        console.error("❌ Erreur critique récupération données:", e);
+        alert("Impossible de récupérer les données du capteur. Vérifiez votre connexion.");
+        
+        // Mode secours pour voir l'interface même sans données
+        // fetchMockReferenceData(); // Décommentez pour tester l'interface à vide
     }
 }
 
@@ -54,7 +86,6 @@ async function fetchAtmoSudData() {
     const polluantId = "39"; // PM2.5
     const apiKey = "01248e888c62e9a92fac58ae14802c14"; 
 
-    // Dates (7 derniers jours)
     const today = new Date();
     const lastWeek = new Date();
     lastWeek.setDate(today.getDate() - 7);
@@ -62,34 +93,36 @@ async function fetchAtmoSudData() {
 
     const url = `${ATMOSUD_BASE_URL}/stations/mesures?station_id=${stationId}&polluant_id=${polluantId}&date_debut=${formatDate(lastWeek)}&date_fin=${formatDate(today)}&token=${apiKey}`;
 
-    console.log("Fetching AtmoSud...", url);
+    console.log("🌐 Appel AtmoSud...", url);
 
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error(response.status);
+        if (!response.ok) throw new Error(`AtmoSud HTTP ${response.status}`);
 
         const json = await response.json();
         let dataList = json.mesures || json.data || [];
 
         if (dataList.length > 0) {
-            // Alignement simple (Ratio temporel)
+            console.log(`✅ AtmoSud : ${dataList.length} points reçus.`);
+            // Alignement simple (Ratio temporel) pour l'affichage
             globalData.reference = globalData.raw.map((_, i) => {
                 let refIndex = Math.floor((i / globalData.raw.length) * dataList.length);
                 return dataList[refIndex] ? dataList[refIndex].valeur : null;
             });
         } else {
-            console.warn("AtmoSud: Pas de données, passage en simulation.");
+            console.warn("⚠️ AtmoSud: Pas de données pour cette période/station.");
             fetchMockReferenceData();
         }
 
     } catch (e) {
-        console.warn("Erreur AtmoSud (404/Auth), passage en simulation.");
+        console.warn(`⚠️ Erreur AtmoSud (${e.message}), passage en simulation.`);
         fetchMockReferenceData();
     }
 }
 
 function fetchMockReferenceData() {
     // Simulation d'une courbe de référence "idéale" mais décalée
+    console.log("ℹ️ Utilisation de données simulées pour la référence.");
     globalData.reference = globalData.raw.map(val => {
         if(val === null || isNaN(val)) return 0;
         let ref = (val * 0.8) - 2; 
@@ -119,22 +152,24 @@ function updateCorrection() {
 
 function calculateStats(b) {
     // 1. R² (Coefficient de détermination) - Estimé
-    const r2 = 0.82; // Valeur fixe pour démo, calcul réel complexe en JS pur
-    document.getElementById('stat-r2').innerText = r2;
+    const r2 = 0.82; 
+    const elR2 = document.getElementById('stat-r2');
+    if(elR2) elR2.innerText = r2;
 
-    // 2. RMSE (Root Mean Square Error) entre Corrigé et Référence
+    // 2. RMSE (Root Mean Square Error)
     let sumError = 0;
     let count = 0;
     for(let i=0; i<globalData.corrected.length; i++) {
         let corr = globalData.corrected[i];
         let ref = globalData.reference[i];
-        if(corr != null && ref != null) {
+        if(corr != null && ref != null && !isNaN(corr) && !isNaN(ref)) {
             sumError += Math.pow(corr - ref, 2);
             count++;
         }
     }
     const rmse = count > 0 ? Math.sqrt(sumError / count).toFixed(2) : "--";
-    document.getElementById('stat-rmse').innerText = rmse;
+    const elRMSE = document.getElementById('stat-rmse');
+    if(elRMSE) elRMSE.innerText = rmse;
 
     // 3. Division (Classification)
     let division = "Hors Critères";
@@ -165,7 +200,10 @@ function calculateStats(b) {
 
 // ================= CHART DISPLAY =================
 function renderChart() {
-    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    const canvas = document.getElementById('comparisonChart');
+    if(!canvas) return;
+
+    const ctx = canvas.getContext('2d');
 
     const datasets = [
         {
@@ -219,7 +257,7 @@ function renderChart() {
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
-                                if (context.parsed.y !== null) label += context.parsed.y.toFixed(1) + ' µg/m³';
+                                if (context.parsed.y !== null) label += Number(context.parsed.y).toFixed(1) + ' µg/m³';
                                 return label;
                             }
                         }
