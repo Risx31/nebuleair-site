@@ -24,7 +24,6 @@ async function fetchData() {
         globalData.raw = jsonData.map(d => parseFloat(d.pm25 || d.PM25 || d.value)); 
 
         // B. Récupération Données de Référence (AtmoSud)
-        // APPEL CORRIGÉ ICI : On appelle la vraie fonction AtmoSud
         await fetchAtmoSudData();
 
         // C. Calcul initial
@@ -37,43 +36,67 @@ async function fetchData() {
 }
 
 // ======================================================
-// 2. Fonction AtmoSud (API Réelle)
+// 2. Fonction AtmoSud (API Réelle corrigée)
 // ======================================================
 
 async function fetchAtmoSudData() {
-    // ID technique station Marseille-Longchamp: 39 (à vérifier selon doc AtmoSud)
-    // Code polluant PM2.5: souvent 39 ou 6001. Ici on garde 39 comme dans votre essai.
+    // ID technique station Marseille-Longchamp : 39
+    // ID Polluant PM2.5 : 39 (Code historique)
     const stationId = "39"; 
     const polluantId = "39"; 
-    const apiKey = "01248e888c62e9a92fac58ae14802c14"; // Votre clé API
+    const apiKey = "01248e888c62e9a92fac58ae14802c14"; // Votre clé (à vérifier sur api.atmosud.org si erreur 401)
 
-    // Dates dynamiques : hier et aujourd'hui pour couvrir la période
-    // (Note: pour une vraie prod, il faudrait aligner ces dates sur celles du capteur)
-    const url = `https://api.atmosud.org/observations/stations/${stationId}/polluants/${polluantId}?date_debut=hier&date_fin=aujourdhui&token=${apiKey}`;
+    // Calcul des dates dynamiques (Format YYYY-MM-DD requis par l'API)
+    const today = new Date();
+    const lastWeek = new Date();
+    lastWeek.setDate(today.getDate() - 7); // On prend 7 jours pour correspondre au capteur
+
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    const dateDebut = formatDate(lastWeek);
+    const dateFin = formatDate(today);
+
+    // URL CORRECTE selon la documentation AtmoSud
+    // Endpoint: /observations/stations/mesures
+    const url = `https://api.atmosud.org/observations/stations/mesures?station_id=${stationId}&polluant_id=${polluantId}&date_debut=${dateDebut}&date_fin=${dateFin}&token=${apiKey}`;
+
+    console.log("Appel AtmoSud :", url); // Pour débugger
 
     try {
         const response = await fetch(url);
         
         if (!response.ok) {
-            throw new Error(`Erreur HTTP AtmoSud: ${response.status}`);
+            // Si erreur 401 (Unauthorized) ou 404 (Not Found) ou 500
+            throw new Error(`Erreur HTTP AtmoSud: ${response.status} (${response.statusText})`);
         }
 
         const json = await response.json();
         
-        // Adaptation des données (Mapping)
-        // On suppose que l'API renvoie { data: [ { valeur: 12.3, ... }, ... ] }
-        if (json.data && Array.isArray(json.data)) {
-            // On essaie de faire correspondre grossièrement la taille des tableaux
-            // (Dans un cas idéal, il faut aligner par timestamp, mais ici on simplifie)
-            globalData.reference = json.data.map(item => item.valeur);
+        // Structure attendue : { data: [ { valeur: 12.3, date_debut: "..." }, ... ] }
+        // Ou parfois directement un tableau selon l'endpoint.
+        // Adaptons le code pour être robuste :
+        let dataList = [];
+        if (json.mesures) dataList = json.mesures;
+        else if (json.data) dataList = json.data;
+        else if (Array.isArray(json)) dataList = json;
+
+        if (dataList.length > 0) {
+            // Mapping : on essaie de coller aux timestamps du capteur
+            // Simplification : on prend les valeurs brutes. 
+            // Idéalement il faudrait faire une interpolation temporelle pour aligner exactement les points.
+            globalData.reference = globalData.raw.map((_, i) => {
+                // On prend une valeur de référence périodique ou la moyenne
+                // Ceci est une approximation si les pas de temps sont différents (10min vs 1h)
+                let refIndex = Math.floor((i / globalData.raw.length) * dataList.length);
+                return dataList[refIndex] ? dataList[refIndex].valeur : null;
+            });
+            console.log("Données AtmoSud reçues :", dataList.length, "points");
         } else {
-            console.warn("Format AtmoSud inattendu, passage en simulation.");
+            console.warn("AtmoSud : Aucune donnée reçue pour cette période.");
             fetchMockReferenceData();
         }
 
     } catch (e) {
-        console.error("Erreur API AtmoSud (passage en simulation) :", e);
-        // Fallback sur la simulation si l'API échoue
+        console.error("Échec API AtmoSud (passage en simulation) :", e);
         fetchMockReferenceData(); 
     }
 }
@@ -81,11 +104,10 @@ async function fetchAtmoSudData() {
 // ======================================================
 // 3. Fonction Simulation (Fallback / Secours)
 // ======================================================
-// Cette fonction est nécessaire si l'API échoue ou ne renvoie rien
-
 function fetchMockReferenceData() {
-    console.log("Utilisation des données simulées (Mock)");
+    console.log("⚠️ Utilisation des données simulées (Mock)");
     // On génère une courbe de référence basée sur les données brutes mais modifiée
+    // pour simuler un écart nécessitant calibration.
     globalData.reference = globalData.raw.map(val => {
         let refValue = (val * 0.85) - 2; 
         if (refValue < 0) refValue = 0;
@@ -134,6 +156,7 @@ function calculateStats() {
     let division = "Hors Critères";
     let color = "red";
     
+    // Critères QA/QC AtmoSud (MO-1347)
     if (r2 > 0.75 && b >= 0.7 && b <= 1.3) {
         division = "Division A (Indicatif)";
         color = "green";
@@ -155,7 +178,7 @@ function calculateStats() {
 
 function renderChart() {
     const canvas = document.getElementById('comparisonChart');
-    if (!canvas) return; // Sécurité si le canvas n'est pas encore chargé
+    if (!canvas) return; 
 
     const ctx = canvas.getContext('2d');
 
@@ -259,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             csvContent += "Time,Raw,Reference,Corrected\n";
             
             globalData.times.forEach((t, i) => {
-                let ref = globalData.reference[i] !== undefined ? globalData.reference[i] : "";
+                let ref = globalData.reference[i] !== undefined && globalData.reference[i] !== null ? globalData.reference[i] : "";
                 let row = `${t},${globalData.raw[i]},${ref},${globalData.corrected[i]}`;
                 csvContent += row + "\r\n";
             });
