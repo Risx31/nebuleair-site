@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
     rssi: []
   };
   
-    // ==========================================
+// ==========================================
     //  1. GESTION DU THÈME (MODE NUIT / BANANE)
     // ==========================================
     const body = document.body;
@@ -37,6 +37,14 @@ document.addEventListener("DOMContentLoaded", function () {
             body.classList.replace("dark", "light");
             localStorage.setItem("theme", "light");
         }
+    }
+
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+    if (banana) banana.addEventListener("click", toggleTheme);
+
+    // Appliquer le thème sauvegardé au chargement
+    const savedTheme = localStorage.getItem("theme") || "light";
+    body.className = savedTheme; // Force la classe sauvegardée au démarrage
 
   // ============================
   //  INIT CHART.JS
