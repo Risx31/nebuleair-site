@@ -474,6 +474,10 @@ const mainChart = new Chart(ctx, {
   //  EXPORT CSV
   // ============================
 
+// ============================
+  //  EXPORT CSV
+  // ============================
+
   const exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
     exportBtn.addEventListener("click", function () {
@@ -482,10 +486,15 @@ const mainChart = new Chart(ctx, {
         return;
       }
 
+      // Récupération de la fréquence choisie
+      const freqSelect = document.getElementById("export-freq");
+      const frequency = freqSelect ? parseInt(freqSelect.value) : 1;
+
       let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
       const len = labelsRaw.length;
 
-      for (let i = 0; i < len; i++) {
+      // On boucle avec un pas (step) égal à la fréquence choisie
+      for (let i = 0; i < len; i += frequency) {
         const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
         const v1 = (series.pm1[i] !== undefined) ? series.pm1[i] : "";
         const v2 = (series.pm25[i] !== undefined) ? series.pm25[i] : "";
