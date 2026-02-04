@@ -120,5 +120,26 @@
       if(link.href === window.location.href) link.classList.add('active');
     });
   </script>
+  
+  <div id="snake-container" class="snake-hidden">
+  <div id="snake-panel">
+    <div class="snake-header">
+      <h2>🐍 NebuleSnake</h2>
+      <button id="snake-close">&times;</button>
+    </div>
+    <p class="snake-subtitle">
+      Tu as tapé "snake", tu as débloqué le mode serpent.
+      <br>Flèches ou ZQSD pour jouer. 1/2/3 pour la vitesse.
+    </p>
+    <canvas id="snakeCanvas" width="400" height="400"></canvas>
+    <p class="snake-score">Score : <span id="snake-score-current">0</span></p>
+    <div class="snake-footer">
+      <span class="snake-speed">Vitesse : <span id="snake-speed-label">Normal</span></span>
+      <button id="snake-achievements-btn" class="snake-achievements-btn">🏆 Succès</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/snake.js"></script>
 </body>
 </html>
