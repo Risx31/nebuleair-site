@@ -469,52 +469,49 @@ const mainChart = new Chart(ctx, {
       loadAllData();
     });
   }
-
-  // ============================
-  //  EXPORT CSV
-  // ============================
-
+  
 // ============================
-  //  EXPORT CSV
-  // ============================
+//  EXPORT CSV
+// ============================
 
-  const exportBtn = document.getElementById("export-csv");
-  if (exportBtn) {
-    exportBtn.addEventListener("click", function () {
-      if (!labelsRaw.length) {
-        alert("Pas de données à exporter.");
-        return;
-      }
+const exportBtn = document.getElementById("export-csv");
+if (exportBtn) {
+  exportBtn.addEventListener("click", function () {
+    if (!labelsRaw.length) {
+      alert("Pas de données à exporter.");
+      return;
+    }
 
-      // Récupération de la fréquence choisie
-      const freqSelect = document.getElementById("export-freq");
-      const frequency = freqSelect ? parseInt(freqSelect.value) : 1;
+    // Récupère l'intervalle sélectionné (en minutes)
+    const freqSelect = document.getElementById("export-freq");
+    const frequency = freqSelect ? parseInt(freqSelect.value) : 1;
 
-      let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
-      const len = labelsRaw.length;
+    let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
+    const len = labelsRaw.length;
 
-      // On boucle avec un pas (step) égal à la fréquence choisie
-      for (let i = 0; i < len; i += frequency) {
-        const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
-        const v1 = (series.pm1[i] !== undefined) ? series.pm1[i] : "";
-        const v2 = (series.pm25[i] !== undefined) ? series.pm25[i] : "";
-        const v3 = (series.pm10[i] !== undefined) ? series.pm10[i] : "";
-        const v4 = (series.temperature[i] !== undefined) ? series.temperature[i] : "";
-        const v5 = (series.humidite[i] !== undefined) ? series.humidite[i] : "";
-        csv += t + "," + v1 + "," + v2 + "," + v3 + "," + v4 + "," + v5 + "\n";
-      }
+    // On parcourt les données avec le pas 'frequency'
+    // Note : Cela suppose que vos données sources ont un pas de 1 minute.
+    for (let i = 0; i < len; i += frequency) {
+      const t = labelsRaw[i] ? labelsRaw[i].toISOString() : "";
+      const v1 = (series.pm1[i] !== undefined) ? series.pm1[i] : "";
+      const v2 = (series.pm25[i] !== undefined) ? series.pm25[i] : "";
+      const v3 = (series.pm10[i] !== undefined) ? series.pm10[i] : "";
+      const v4 = (series.temperature[i] !== undefined) ? series.temperature[i] : "";
+      const v5 = (series.humidite[i] !== undefined) ? series.humidite[i] : "";
+      csv += t + "," + v1 + "," + v2 + "," + v3 + "," + v4 + "," + v5 + "\n";
+    }
 
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "nebuleair_export.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-  }
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "nebuleair_export.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+}
 
   // ============================
   //  CARTE LEAFLET
