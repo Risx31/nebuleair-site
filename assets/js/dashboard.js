@@ -1,4 +1,4 @@
-// assets/js/dashboard.js
+events// assets/js/dashboard.js
 
 document.addEventListener("DOMContentLoaded", function () {
   console.log("[NebuleAir] Dashboard JS chargé");
@@ -414,20 +414,23 @@ const mainChart = new Chart(ctx, {
     }
   }
 
-  // ============================
-  //  EVENTS – PLAGES DE TEMPS
-  // ============================
+// --- Section : EVENTS – PLAGES DE TEMPS ---
+// Assurez-vous d'utiliser le sélecteur .btn-range pour correspondre au HTML
+const rangeButtons = document.querySelectorAll(".btn-range"); 
 
-  const rangeButtons = document.querySelectorAll(".range-btn");
-  rangeButtons.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      rangeButtons.forEach(function (b) { b.classList.remove("active"); });
-      btn.classList.add("active");
-      currentRange = btn.dataset.range;
-      customRange = null;
-      loadAllData();
-    });
+rangeButtons.forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    // Supprimer la classe active de TOUS les boutons
+    rangeButtons.forEach(function (b) { b.classList.remove("active"); });
+    // Ajouter la classe active au bouton cliqué
+    btn.classList.add("active");
+    
+    // Mettre à jour la plage et charger les données
+    currentRange = btn.dataset.range;
+    customRange = null;
+    loadAllData();
   });
+});
 
   const applyBtn = document.getElementById("apply-range");
   if (applyBtn) {
