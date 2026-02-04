@@ -645,15 +645,26 @@
     </div>
 
     <!-- Actions bas -->
-    <div class="bottom-actions">
-      <button id="reset-zoom" class="btn-outline">
-        🔍 Réinitialiser Zoom
-      </button>
-      <button id="export-csv" class="btn-outline">
-        📤 Exporter CSV
-      </button>
+<div class="bottom-actions" style="flex-direction: column; align-items: center; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label for="export-freq" style="font-size: 13px; color: var(--muted);">Intervalle d'export :</label>
+        <select id="export-freq" class="date-input" style="width: auto;">
+          <option value="1">Toutes les données</option>
+          <option value="5">Toutes les 5 min</option>
+          <option value="10">Toutes les 10 min</option>
+          <option value="30">Toutes les 30 min</option>
+          <option value="60">Toutes les heures</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <button id="reset-zoom" class="btn-outline">
+          🔍 Réinitialiser Zoom
+        </button>
+        <button id="export-csv" class="btn-outline">
+          📤 Exporter CSV
+        </button>
+      </div>
     </div>
-  </div>
 
   <!-- Leaflet JS -->
   <script
