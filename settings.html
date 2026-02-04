@@ -2,15 +2,43 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NebuleAir – Paramètres</title>
 
-    <!-- CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/dark.css">
-
-    <!-- JS -->
+    
     <script src="assets/js/common.js" defer></script>
     <script src="assets/js/settings.js" defer></script>
+    
+    <style>
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .settings-section-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-item:last-child { border-bottom: none; }
+        .settings-label { font-size: 14px; font-weight: 500; }
+        .color-picker-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .color-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
+    </style>
 </head>
 
 <body class="light">
@@ -23,86 +51,100 @@
                 <li><a href="index.html">Dashboard</a></li>
                 <li><a href="comparaison.html">Comparaison</a></li>
                 <li><a href="status.html">Status</a></li>
-                <li><a href="settings.html">Paramètres</a></li>
+                <li><a href="settings.html" class="active">Paramètres</a></li>
             </ul>
         </nav>
     </div>
     <div class="nav-right">
-        <button id="themeToggle" class="theme-btn">🌙</button>
-        <div class="user-profile" id="userProfileBanana">🍌</div>
+        <button id="themeToggle" class="theme-btn">🌓</button>
+        <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
     </div>
 </header>
 
-    <main class="settings-container">
+<main class="page-container">
+    <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 8px;">Paramètres</h1>
+    <p style="color: var(--text-muted); margin-bottom: 30px;">Personnalisez votre expérience et configurez les préférences du système.</p>
 
-        <!-- SECTION : THÈME -->
-        <h2 class="section-title">Thème</h2>
-        <div class="settings-card">
-            <label class="settings-label">Mode sombre</label>
-            <label class="switch">
-                <input type="checkbox" id="darkModeToggle">
-                <span class="slider"></span>
-            </label>
-        </div>
+    <div class="settings-grid">
+        
+        <section class="card">
+            <h2 class="settings-section-title">🌓 Apparence</h2>
+            <div class="settings-item">
+                <span class="settings-label">Mode sombre</span>
+                <label class="switch">
+                    <input type="checkbox" id="darkModeToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="settings-item" style="flex-direction: column; align-items: flex-start;">
+                <span class="settings-label" style="margin-bottom: 10px;">Couleurs des courbes</span>
+                <div class="color-picker-group">
+                    <div class="color-item">
+                        <input type="color" id="colorPM1" value="#2563eb">
+                        <span>PM1</span>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="colorPM25" value="#f59e0b">
+                        <span>PM2.5</span>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="colorPM10" value="#db2777">
+                        <span>PM10</span>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="colorTemp" value="#10b981">
+                        <span>Temp.</span>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="colorHum" value="#06b6d4">
+                        <span>Hum.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-        <!-- SECTION : DASHBOARD -->
-        <h2 class="section-title">Dashboard</h2>
+        <section class="card">
+            <h2 class="settings-section-title">📊 Dashboard</h2>
+            <div class="settings-item" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                <span class="settings-label">Période par défaut</span>
+                <select id="defaultPeriod" class="date-input" style="width: 100%;">
+                    <option value="-1h">1 heure</option>
+                    <option value="-6h">6 heures</option>
+                    <option value="-24h">24 heures</option>
+                    <option value="-7d">7 jours</option>
+                    <option value="-30d">30 jours</option>
+                </select>
+            </div>
+            <div class="settings-item" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                <span class="settings-label">Fréquence de rafraîchissement</span>
+                <select id="refreshRate" class="date-input" style="width: 100%;">
+                    <option value="10000">10 secondes</option>
+                    <option value="30000">30 secondes</option>
+                    <option value="60000">1 minute</option>
+                    <option value="120000">2 minutes</option>
+                </select>
+            </div>
+            <div class="settings-item">
+                <span class="settings-label">Mode LIVE (Direct capteur)</span>
+                <label class="switch">
+                    <input type="checkbox" id="liveModeToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </section>
 
-        <div class="settings-card">
-            <label class="settings-label">Période par défaut</label>
-            <select id="defaultPeriod" class="settings-select">
-                <option value="-1h">1 heure</option>
-                <option value="-6h">6 heures</option>
-                <option value="-24h">24 heures</option>
-                <option value="-7d">7 jours</option>
-                <option value="-30d">30 jours</option>
-            </select>
-        </div>
+        <section class="card" style="border-color: #fee2e2;">
+            <h2 class="settings-section-title" style="color: #dc2626;">⚠️ Système</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">
+                Attention : la réinitialisation effacera toutes vos préférences stockées localement.
+            </p>
+            <button id="resetSite" class="btn-primary" style="background: #dc2626; width: 100%; border: none;">
+                Réinitialiser les préférences
+            </button>
+        </section>
 
-        <div class="settings-card">
-            <label class="settings-label">Fréquence de rafraîchissement</label>
-            <select id="refreshRate" class="settings-select">
-                <option value="10000">10 secondes</option>
-                <option value="30000">30 secondes</option>
-                <option value="60000">1 minute</option>
-                <option value="120000">2 minutes</option>
-            </select>
-        </div>
-
-        <div class="settings-card">
-            <label class="settings-label">Activer le mode LIVE (connexion directe capteur → Web)</label>
-            <label class="switch">
-                <input type="checkbox" id="liveModeToggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-
-        <!-- SECTION : couleurs -->
-        <h2 class="section-title">Couleurs des courbes</h2>
-        <div class="settings-card">
-            <label class="settings-label">PM1</label>
-            <input type="color" id="colorPM1" value="#2962ff">
-
-            <label class="settings-label">PM2.5</label>
-            <input type="color" id="colorPM25" value="#ff9800">
-
-            <label class="settings-label">PM10</label>
-            <input type="color" id="colorPM10" value="#ef5350">
-
-            <label class="settings-label">Température</label>
-            <input type="color" id="colorTemp" value="#26c6da">
-
-            <label class="settings-label">Humidité</label>
-            <input type="color" id="colorHum" value="#26a69a">
-        </div>
-
-        <!-- SECTION : système -->
-        <h2 class="section-title">Système</h2>
-        <div class="settings-card danger-zone">
-            <button id="resetSite" class="danger-btn">Réinitialiser toutes les préférences</button>
-        </div>
-
-    </main>
+    </div>
+</main>
 
 </body>
 </html>
