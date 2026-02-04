@@ -2,13 +2,11 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>NebuleAir – Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NebuleAir – Status Système</title>
 
-    <!-- CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/dashboard.css"> <!-- pour les cards Material -->
-
-    <!-- JS -->
+    
     <script src="assets/js/common.js" defer></script>
     <script src="assets/js/api.js" defer></script>
     <script src="assets/js/status.js" defer></script>
@@ -23,88 +21,72 @@
             <ul class="nav-links">
                 <li><a href="index.html">Dashboard</a></li>
                 <li><a href="comparaison.html">Comparaison</a></li>
-                <li><a href="status.html">Status</a></li>
+                <li><a href="status.html" class="active">Status</a></li>
                 <li><a href="settings.html">Paramètres</a></li>
             </ul>
         </nav>
     </div>
     <div class="nav-right">
-        <button id="themeToggle" class="theme-btn">🌙</button>
-        <div class="user-profile" id="userProfileBanana">🍌</div>
+        <button id="themeToggle" class="theme-btn">🌓</button>
+        <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
     </div>
 </header>
 
-    <main class="status-container">
+<main class="page-container">
+    <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 24px;">Informations Générales</h2>
+    
+    <section class="dashboard-grid" style="margin-bottom: 40px;">
+        <div class="card">
+            <div class="card-label">Dernière mise à jour</div>
+            <div id="statusLastUpdate" class="card-value" style="font-size: 20px;">--</div>
+        </div>
 
-        <h2 class="section-title">Informations Générales</h2>
+        <div class="card">
+            <div class="card-label">WiFi (RSSI)</div>
+            <div id="statusRSSI" class="card-value">-- <small style="font-size: 14px;">dBm</small></div>
+        </div>
 
-        <section class="status-grid">
-
-            <div class="status-card">
-                <div class="status-label">Dernière mise à jour</div>
-                <div id="statusLastUpdate" class="status-value">--</div>
+        <div class="card">
+            <div class="card-label">Statut Capteurs</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span>NextPM:</span> <span id="statusNextPM" class="status-badge ok">--</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span>BME280:</span> <span id="statusBME" class="status-badge ok">--</span>
+                </div>
             </div>
+        </div>
 
-            <div class="status-card">
-                <div class="status-label">Uptime estimé</div>
-                <div id="statusUptime" class="status-value">--</div>
+        <div class="card">
+            <div class="card-label">Qualité de l'air</div>
+            <div id="statusAQI" class="card-value">--</div>
+            <div id="statusAQIMessage" style="font-size: 12px; color: var(--text-muted); margin-top: 5px;">--</div>
+        </div>
+    </section>
+
+    <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 24px;">Dernières Mesures</h2>
+
+    <section class="dashboard-grid">
+        <div class="card">
+            <div class="card-label">PM1 / PM2.5 / PM10</div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 10px;">
+                <span id="statusPM1">--</span> / <span id="statusPM25">--</span> / <span id="statusPM10">--</span>
             </div>
+            <small style="color: var(--text-muted);">µg/m³</small>
+        </div>
 
-            <div class="status-card">
-                <div class="status-label">RSSI WiFi</div>
-                <div id="statusRSSI" class="status-value">--</div>
-            </div>
+        <div class="card">
+            <div class="card-label">Température</div>
+            <div id="statusTemp" class="card-value">-- <small style="font-size: 14px;">°C</small></div>
+        </div>
 
-            <div class="status-card">
-                <div class="status-label">Statut NextPM</div>
-                <div id="statusNextPM" class="status-value">--</div>
-            </div>
-
-            <div class="status-card">
-                <div class="status-label">Statut BME280</div>
-                <div id="statusBME" class="status-value">--</div>
-            </div>
-
-            <div class="status-card">
-                <div class="status-label">Qualité globale de l'air</div>
-                <div id="statusAQI" class="status-value">--</div>
-                <div id="statusAQIMessage" class="status-subtext">--</div>
-            </div>
-
-        </section>
-
-        <h2 class="section-title">Dernières Mesures Reçues</h2>
-
-        <section class="status-grid">
-
-            <div class="status-card">
-                <div class="status-label">PM1</div>
-                <div id="statusPM1" class="status-value">--</div>
-            </div>
-
-            <div class="status-card">
-                <div class="status-label">PM2.5</div>
-                <div id="statusPM25" class="status-value">--</div>
-            </div>
-
-            <div class="status-card">
-                <div class="status-label">PM10</div>
-                <div id="statusPM10" class="status-value">--</div>
-            </div>
-
-            <div class="status-card">
-                <div class="status-label">Température</div>
-                <div id="statusTemp" class="status-value">--</div>
-            </div>
-
-            <div class="status-card">
-                <div class="status-label">Humidité</div>
-                <div id="statusHum" class="status-value">--</div>
-            </div>
-
-        </section>
-
-    </main>
+        <div class="card">
+            <div class="card-label">Humidité</div>
+            <div id="statusHum" class="card-value">-- <small style="font-size: 14px;">%</small></div>
+        </div>
+    </section>
+</main>
 
 </body>
 </html>
