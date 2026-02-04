@@ -10,6 +10,29 @@
     <script src="assets/js/common.js" defer></script>
     <script src="assets/js/api.js" defer></script>
     <script src="assets/js/status.js" defer></script>
+    
+    <style>
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .status-badge.ok { background: #dcfce7; color: #166534; }
+        .status-badge.err { background: #fee2e2; color: #991b1b; }
+        .status-badge.warn { background: #fef9c3; color: #854d0e; }
+        
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .status-row:last-child { border-bottom: none; }
+    </style>
 </head>
 
 <body class="light">
@@ -27,18 +50,20 @@
         </nav>
     </div>
     <div class="nav-right">
-        <button id="themeToggle" class="theme-btn">🌓</button>
+        <button id="themeToggle" class="theme-btn" title="Changer de thème">🌓</button>
         <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
     </div>
 </header>
 
 <main class="page-container">
-    <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 24px;">Informations Générales</h2>
+    <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 8px;">État du système</h1>
+    <p style="color: var(--text-muted); margin-bottom: 30px;">Surveillance en temps réel de la connectivité et de l'intégrité des capteurs.</p>
     
+    <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">Informations Générales</h2>
     <section class="dashboard-grid" style="margin-bottom: 40px;">
         <div class="card">
             <div class="card-label">Dernière mise à jour</div>
-            <div id="statusLastUpdate" class="card-value" style="font-size: 20px;">--</div>
+            <div id="statusLastUpdate" class="card-value" style="font-size: 18px;">--</div>
         </div>
 
         <div class="card">
@@ -47,33 +72,34 @@
         </div>
 
         <div class="card">
-            <div class="card-label">Statut Capteurs</div>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-                <div style="display: flex; justify-content: space-between; font-size: 14px;">
-                    <span>NextPM:</span> <span id="statusNextPM" class="status-badge ok">--</span>
+            <div class="card-label">Santé des modules</div>
+            <div style="margin-top: 10px;">
+                <div class="status-row">
+                    <span style="font-size: 14px;">Capteur PM (NextPM)</span>
+                    <span id="statusNextPM" class="status-badge ok">En ligne</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 14px;">
-                    <span>BME280:</span> <span id="statusBME" class="status-badge ok">--</span>
+                <div class="status-row">
+                    <span style="font-size: 14px;">Météo (BME280)</span>
+                    <span id="statusBME" class="status-badge ok">En ligne</span>
                 </div>
             </div>
         </div>
 
         <div class="card">
-            <div class="card-label">Qualité de l'air</div>
+            <div class="card-label">Qualité Globale</div>
             <div id="statusAQI" class="card-value">--</div>
             <div id="statusAQIMessage" style="font-size: 12px; color: var(--text-muted); margin-top: 5px;">--</div>
         </div>
     </section>
 
-    <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 24px;">Dernières Mesures</h2>
-
+    <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">Dernières Valeurs Reçues</h2>
     <section class="dashboard-grid">
         <div class="card">
-            <div class="card-label">PM1 / PM2.5 / PM10</div>
-            <div style="font-size: 20px; font-weight: 700; margin-top: 10px;">
+            <div class="card-label">Particules (PM)</div>
+            <div style="font-size: 22px; font-weight: 800; margin-top: 10px;">
                 <span id="statusPM1">--</span> / <span id="statusPM25">--</span> / <span id="statusPM10">--</span>
             </div>
-            <small style="color: var(--text-muted);">µg/m³</small>
+            <small style="color: var(--text-muted);">µg/m³ (PM1/2.5/10)</small>
         </div>
 
         <div class="card">
@@ -85,8 +111,22 @@
             <div class="card-label">Humidité</div>
             <div id="statusHum" class="card-value">-- <small style="font-size: 14px;">%</small></div>
         </div>
+
+        <div class="card">
+            <div class="card-label">Disponibilité (Uptime)</div>
+            <div id="statusUptime" class="card-value" style="font-size: 18px;">--</div>
+        </div>
     </section>
 </main>
+
+<script>
+    // Script d'activation des onglets
+    document.querySelectorAll('.nav-links a').forEach(link => {
+        if(link.getAttribute('href') === window.location.pathname.split('/').pop()) {
+            link.classList.add('active');
+        }
+    });
+</script>
 
 </body>
 </html>
