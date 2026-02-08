@@ -483,41 +483,58 @@ function loadPM25Calibration() {
     renderChart();
   }
 
-  function autoCalibrateOnWindow() {
-    const windowMs = getWindowMs();
-    const { xRef, yRaw } = getPairs(windowMs);
-
-    console.log(`🎯 Auto-calibration: ${xRef.length} paires (sur la plage)`);
-
-    if (xRef.length < 5) {
-      console.warn("Pas assez de points dans la plage pour calibrer (min ~5).");
-      return;
-    }
-
-    const { a, b } = linearRegression(xRef, yRaw);
-    if (!isFiniteNumber(a) || !isFiniteNumber(b) || b === 0) {
-      console.warn("Régression invalide (a/b).");
-      return;
-    }
-
-    if (el.coeffA) el.coeffA.value = a.toFixed(3);
-    if (el.coeffB) el.coeffB.value = b.toFixed(3);
-     const s = el.calibStart ? el.calibStart.value : null;
-const e = el.calibEnd ? el.calibEnd.value : null;
-
-savePM25Calibration({
-  a,
-  b,
-  startISO: s ? new Date(s).toISOString() : null,
-  endISO: e ? new Date(e).toISOString() : null,
-  method: "auto"
-});
-
-     
-
-    console.log(`✅ a=${a.toFixed(3)}  b=${b.toFixed(3)} (appliqués)`);
-    updateCorrection();
+function autoCalibrateOnWindow() {
+  // 1) Récupération de la plage de calibration
+  const windowMs = getWindowMs();
+  if (!windowMs) {
+    console.warn("❌ Plage de calibration invalide ou incomplète.");
+    return;
   }
+
+  // 2) Extraction des paires (référence / brut) dans la plage
+  const { xRef, yRaw } = getPairs(windowMs);
+
+  console.log(`🎯 Auto-calibration PM2.5 : ${xRef.length} paires utilisées`);
+
+  if (xRef.length < 5) {
+    console.warn("❌ Pas assez de points pour calibrer (minimum ≈ 5 requis).");
+    return;
+  }
+
+  // 3) Régression linéaire : y_raw = a + b * x_ref
+  const { a, b } = linearRegression(xRef, yRaw);
+
+  if (!isFiniteNumber(a) || !isFiniteNumber(b) || b === 0) {
+    console.warn("❌ Régression invalide : coefficients a/b incorrects.");
+    return;
+  }
+
+  // 4) Injection des coefficients dans l'UI
+  if (el.coeffA) el.coeffA.value = a.toFixed(3);
+  if (el.coeffB) el.coeffB.value = b.toFixed(3);
+
+  // 5) Sauvegarde calibration (UNIQUEMENT PM2.5)
+  if (METRIC === "pm25") {
+    const startValue = el.calibStart ? el.calibStart.value : null;
+    const endValue   = el.calibEnd   ? el.calibEnd.value   : null;
+
+    savePM25Calibration({
+      a,
+      b,
+      startISO: startValue ? new Date(startValue).toISOString() : null,
+      endISO:   endValue   ? new Date(endValue).toISOString()   : null,
+      method: "auto"
+    });
+
+    console.log(
+      `💾 Calibration PM2.5 sauvegardée → a=${a.toFixed(3)}, b=${b.toFixed(3)}`
+    );
+  }
+
+  // 6) Application immédiate de la correction + recalcul KPI + refresh graphe
+  updateCorrection();
+}
+
 
   function exportCSV() {
     const header = ["TimeUTC", "Raw", "Reference", "Corrected", "Temperature", "Humidite"].join(",");
@@ -608,7 +625,27 @@ savePM25Calibration({
 
   // ---------------------- INIT ----------------------
   document.addEventListener("DOMContentLoaded", () => {
-    if (el.btnApply) el.btnApply.addEventListener("click", updateCorrection);
+if (el.btnApply) el.btnApply.addEventListener("click", () => {
+  // sauvegarde les valeurs saisies
+  if (METRIC === "pm25") {
+    const a = el.coeffA ? (parseFloat(el.coeffA.value) || 0) : 0;
+    const b = el.coeffB ? (parseFloat(el.coeffB.value) || 1) : 1;
+
+    const s = el.calibStart ? el.calibStart.value : null;
+    const e = el.calibEnd ? el.calibEnd.value : null;
+
+    savePM25Calibration({
+      a,
+      b,
+      startISO: s ? new Date(s).toISOString() : null,
+      endISO: e ? new Date(e).toISOString() : null,
+      method: "manual"
+    });
+  }
+
+  updateCorrection();
+});
+
     if (el.btnExport) el.btnExport.addEventListener("click", exportCSV);
 
     // Event delegation = même si le DOM bouge, le bouton marche
