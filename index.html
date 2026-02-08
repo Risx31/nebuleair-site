@@ -81,13 +81,18 @@
           <label><input type="checkbox" id="hum-toggle" checked> Hum</label>
         </div>
 
-        <div class="range-group" style="display: flex; gap: 10px; align-items: center;">
-          <button class="btn-range" data-range="1h">1h</button>
-          <button class="btn-range" data-range="24h">24h</button>
-          <button class="btn-range" data-range="7j">7j</button>
-          <input type="date" id="start-date" class="date-input">
-          <button id="apply-range" class="btn-primary" style="padding: 8px 16px;">Appliquer</button>
-        </div>
+<div class="range-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+  <button class="btn-range" data-range="1h">1h</button>
+  <button class="btn-range" data-range="24h">24h</button>
+  <button class="btn-range" data-range="7j">7j</button>
+
+  <input type="datetime-local" id="start-date" class="date-input">
+  <span style="color: var(--text-muted); font-size: 12px;">→</span>
+  <input type="datetime-local" id="end-date" class="date-input">
+
+  <button id="apply-range" class="btn-primary" style="padding: 8px 16px;">Appliquer</button>
+</div>
+
       </div>
     </section>
 
