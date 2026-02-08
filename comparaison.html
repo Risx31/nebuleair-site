@@ -1,157 +1,208 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NebuleAir – Comparaison & Calibration</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NebuleAir - Comparaison</title>
 
-  <!-- ✅ mêmes assets que les autres pages -->
-  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- Fonts (identique index.html) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Chart.js + time adapter (tu l’avais déjà) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <!-- Local CSS (identique index.html) -->
+  <link rel="stylesheet" href="assets/css/style.css" />
 
-  <!-- ✅ scripts communs -->
-  <script src="assets/js/common.js" defer></script>
+  <!-- Chart.js (identique index.html) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns" defer></script>
 
-  <!-- ✅ TON script comparaison (doit être à cet emplacement) -->
-  <script src="assets/js/comparaison.js" defer></script>
-
-  <!-- petits styles de layout (comme ton fichier original) -->
+  <!-- (Optionnel) Evite un crash si un script "share-modal.js" est chargé ailleurs et attend un bouton -->
   <style>
-    .comparison-layout{
-      display:grid;
-      grid-template-columns:320px 1fr;
-      gap:24px;
-      margin-top:24px;
+    .comparison-layout {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 20px;
+      margin-top: 20px;
+      align-items: start;
     }
-    .sidebar-controls .input-group{ margin-bottom:20px; }
-    .sidebar-controls label{
-      display:block; font-size:13px; font-weight:600;
-      margin-bottom:8px; color:var(--text-muted);
+    @media (max-width: 1024px) {
+      .comparison-layout { grid-template-columns: 1fr; }
     }
-    .sidebar-controls input{ width:100%; }
-    .formula-box{
-      background:var(--primary-soft);
-      padding:15px;
-      border-radius:10px;
-      text-align:center;
-      margin:20px 0;
-      font-family:'Courier New', monospace;
-      font-size:14px;
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 20px;
     }
-    .kpi-grid{
-      display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:20px;
-      margin-bottom:24px;
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     }
-    .kpi-card{ text-align:center; }
-    .kpi-label{
-      display:block; font-size:12px; font-weight:700;
-      color:var(--text-muted);
-      text-transform:uppercase;
-      margin-bottom:5px;
+
+    .kpi-card { text-align: center; }
+    .kpi-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 5px;
     }
-    .kpi-value{
-      display:block; font-size:24px;
-      font-weight:800;
-      color:var(--primary);
+    .kpi-value {
+      display: block;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
     }
-    .kpi-sub{ font-size:11px; color:var(--text-muted); }
-    @media (max-width:1024px){
-      .comparison-layout{ grid-template-columns:1fr; }
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .input-group { margin-bottom: 18px; }
+    .input-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+    .formula-box {
+      background: var(--primary-soft);
+      padding: 14px;
+      border-radius: 10px;
+      text-align: center;
+      margin: 18px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+      font-size: 14px;
+    }
+
+    /* Si jamais un share-modal.js attend #shareBtn, on le met discret sans casser le style */
+    .ghost-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      line-height: 1;
     }
   </style>
 </head>
 
-<body class="light">
+<body>
 
-<header class="topbar">
-  <div class="nav-left">
-    <div class="logo">☁️ NebuleAir</div>
-    <nav>
-      <ul class="nav-links">
-        <li><a href="index.html">Dashboard</a></li>
-        <li><a href="comparaison.html" class="active">Comparaison</a></li>
-        <li><a href="status.html">Status</a></li>
-        <li><a href="settings.html">Paramètres</a></li>
-      </ul>
-    </nav>
-  </div>
+  <!-- Topbar (identique index.html) -->
+  <header class="topbar">
+    <div class="nav-left">
+      <div class="logo">☁️ NebuleAir</div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="comparaison.html">Comparaison</a></li>
+          <li><a href="status.html">Status</a></li>
+          <li><a href="settings.html">Paramètres</a></li>
+        </ul>
+      </nav>
+    </div>
 
-  <div class="nav-right">
-    <button id="themeToggle" class="theme-btn" title="Thème">🌓</button>
+    <div class="nav-right">
+      <button id="themeToggle" class="theme-btn" title="Changer de thème">🌓</button>
 
-    <!-- ✅ évite le crash share-modal.js (id attendu très probable) -->
-    <button id="shareBtn" class="theme-btn" title="Partager">✨</button>
+      <!-- ✅ bouton “fantôme” (n’affecte pas si tu n’as pas de share modal, mais évite un crash si un script l’attend) -->
+      <button id="shareBtn" class="ghost-btn" title="Partager" aria-label="Partager" style="display:none;">✨</button>
 
-    <div class="user-profile" id="userProfileBanana" style="margin-left:15px; cursor:pointer;">🍌</div>
-  </div>
-</header>
+      <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
+    </div>
+  </header>
 
-<main class="page-container">
-  <div class="comparison-layout">
+  <main class="page-container">
 
-    <aside class="card sidebar-controls">
-      <h2 style="font-size:18px; margin-bottom:10px;">Calibration</h2>
-      <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">
-        Ajustez les coefficients pour corriger la dérive des capteurs.
-      </p>
+    <div class="comparison-layout">
 
-      <div class="input-group">
-        <label for="coeff-pente">Pente (b)</label>
-        <input type="number" id="coeff-pente" value="1.0" step="0.001" class="date-input">
-        <small style="font-size:11px; color:var(--text-muted);">Multiplicateur de gain</small>
-      </div>
+      <!-- Colonne gauche : calibration -->
+      <aside class="card" style="padding: 20px;">
+        <div class="card-label" style="margin-bottom: 10px;">Calibration</div>
 
-      <div class="input-group">
-        <label for="coeff-offset">Offset (a)</label>
-        <input type="number" id="coeff-offset" value="0.0" step="0.001" class="date-input">
-        <small style="font-size:11px; color:var(--text-muted);">Décalage à l'origine</small>
-      </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 0; margin-bottom: 18px;">
+          Ajuste <strong>a</strong> et <strong>b</strong> pour corriger NebuleAir afin de coller à la référence AtmoSud.
+        </p>
 
-      <div class="formula-box">
-        C<sub>corr</sub> = (C<sub>brut</sub> - a) / b
-      </div>
+        <div class="input-group">
+          <label for="coeff-pente">Pente (b)</label>
+          <input type="number" id="coeff-pente" value="1.0" step="0.001" class="date-input">
+          <small style="font-size:11px; color: var(--text-muted);">Gain</small>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <button id="apply-calibration" class="btn-primary">Appliquer</button>
-        <button id="export-data" class="btn-primary" style="background: var(--text-muted);">
-          📥 Exporter CSV
+        <div class="input-group">
+          <label for="coeff-offset">Offset (a)</label>
+          <input type="number" id="coeff-offset" value="0.0" step="0.001" class="date-input">
+          <small style="font-size:11px; color: var(--text-muted);">Décalage</small>
+        </div>
+
+        <div class="formula-box">
+          C<sub>corr</sub> = (C<sub>brut</sub> − a) / b
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button id="apply-calibration" class="btn-primary" style="width: 100%;">Appliquer</button>
+          <button id="export-data" class="btn-primary" style="width: 100%; background: var(--text-muted);">
+            📤 Télécharger le CSV
+          </button>
+        </div>
+
+        <button id="reset-zoom"
+          style="margin-top: 12px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; text-decoration:underline; width:100%;">
+          Réinitialiser l'affichage
         </button>
-      </div>
-    </aside>
+      </aside>
 
-    <section>
-      <div class="kpi-grid">
-        <div class="card kpi-card">
-          <span class="kpi-label">Corrélation (R²)</span>
-          <span class="kpi-value" id="stat-r2">--</span>
-          <span class="kpi-sub">Cible &gt; 0.75</span>
+      <!-- Colonne droite : KPIs + Chart -->
+      <section>
+
+        <div class="kpi-grid">
+          <div class="card kpi-card" style="padding: 18px;">
+            <span class="kpi-label">Corrélation (R²)</span>
+            <span class="kpi-value" id="stat-r2">--</span>
+            <span class="kpi-sub">raw vs référence</span>
+          </div>
+
+          <div class="card kpi-card" style="padding: 18px;">
+            <span class="kpi-label">Erreur (RMSE)</span>
+            <span class="kpi-value" id="stat-rmse">--</span>
+            <span class="kpi-sub">corrigé vs référence</span>
+          </div>
+
+          <div class="card kpi-card" id="card-division" style="padding: 18px;">
+            <span class="kpi-label">Performance</span>
+            <span class="kpi-value" id="stat-division">--</span>
+            <span class="kpi-sub">index A/B/C</span>
+          </div>
         </div>
 
-        <div class="card kpi-card">
-          <span class="kpi-label">Erreur (RMSE)</span>
-          <span class="kpi-value" id="stat-rmse">--</span>
-          <span class="kpi-sub">µg/m³</span>
-        </div>
+        <section class="card" style="height: 520px; padding: 20px;">
+          <canvas id="comparisonChart"></canvas>
+        </section>
 
-        <div class="card kpi-card" id="card-division">
-          <span class="kpi-label">Performance</span>
-          <span class="kpi-value" id="stat-division">--</span>
-          <span class="kpi-sub">Index AtmoSud</span>
-        </div>
-      </div>
+      </section>
 
-      <div class="card" style="height:480px;">
-        <canvas id="comparisonChart"></canvas>
-      </div>
-    </section>
+    </div>
+  </main>
 
-  </div>
-</main>
+  <!-- App JS (même logique que index.html : script defer en bas) -->
+  <script src="assets/js/comparaison.js" defer></script>
+
+  <!-- Onglet actif (copié de index.html) -->
+  <script defer>
+    window.addEventListener("DOMContentLoaded", () => {
+      const current = window.location.pathname.split("/").pop() || "index.html";
+      document.querySelectorAll(".nav-links a").forEach(a => {
+        const href = (a.getAttribute("href") || "").split("/").pop();
+        if (href === current) a.classList.add("active");
+      });
+    });
+  </script>
 
 </body>
 </html>
