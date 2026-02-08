@@ -138,6 +138,30 @@
           <input type="number" id="coeff-offset" value="0.0" step="0.1" class="date-input" />
           <small style="font-size: 11px; color: var(--text-muted);">Décalage à l'origine</small>
         </div>
+        <div class="input-group">
+          <label>Plage de calibration</label>
+        
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="datetime-local" id="calib-start" class="date-input">
+            <span style="color: var(--text-muted); font-size: 12px;">→</span>
+            <input type="datetime-local" id="calib-end" class="date-input">
+          </div>
+        
+          <small style="font-size: 11px; color: var(--text-muted);">
+            Les coefficients <b>a</b>/<b>b</b> + KPI seront calculés sur cette plage.
+          </small>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+          <button id="auto-calibration" class="btn-primary" type="button" style="background: var(--primary);">
+            🎯 Auto-calibrer sur la plage
+          </button>
+        
+          <label style="display:flex; gap:10px; align-items:center; font-size:12px; color:var(--text-muted);">
+            <input type="checkbox" id="apply-only-window">
+            Appliquer la correction seulement sur la plage
+          </label>
+        </div>
 
         <div class="formula-box">
           C<sub>corr</sub> = (C<sub>brut</sub> - a) / b
