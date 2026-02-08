@@ -9,133 +9,137 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
-<body class="light"> <header class="topbar">
-      <div class="nav-left">
-          <div class="logo">☁️ NebuleAir</div>
-          <nav>
-              <ul class="nav-links">
-                  <li><a href="index.html" class="active">Dashboard</a></li>
-                  <li><a href="comparaison.html">Comparaison</a></li>
-                  <li><a href="status.html">Status</a></li>
-                  <li><a href="settings.html">Paramètres</a></li>
-              </ul>
-          </nav>
-      </div>
-      <div class="nav-right">
-          <button id="themeToggle" class="theme-btn" title="Changer de thème">🌓</button>
-          <div class="user-profile" id="userProfileBanana" style="cursor:pointer">🍌</div>
-      </div>
-  </header>
+<header class="topbar">
+    <div class="nav-left">
+        <div class="logo">☁️ NebuleAir</div>
+        <nav>
+            <ul class="nav-links">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="comparaison.html">Comparaison</a></li>
+                <li><a href="status.html">Status</a></li>
+                <li><a href="settings.html">Paramètres</a></li>
+            </ul>
+        </nav>
+    </div>
+    <div class="nav-right">
+        <button id="themeToggle" class="theme-btn" title="Changer de thème">🌓</button>
+        <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
+    </div>
+</header>
 
-  <main class="dashboard-container">
+  <main class="page-container">
     
-    <div class="stats-grid">
-      <div class="card stat-card">
+    <div class="dashboard-grid">
+      <div class="card">
         <div class="card-label">PM1</div>
-        <div class="card-value" id="pm1-value">--</div>
-        <div class="card-unit">µg/m³</div>
+        <div class="card-value"><span id="pm1-value">--</span> <small>µg/m³</small></div>
       </div>
-      <div class="card stat-card">
+      <div class="card">
         <div class="card-label">PM2.5</div>
-        <div class="card-value" id="pm25-value">--</div>
-        <div class="card-unit">µg/m³</div>
+        <div class="card-value"><span id="pm25-value">--</span> <small>µg/m³</small></div>
       </div>
-      <div class="card stat-card">
+      <div class="card">
         <div class="card-label">PM10</div>
-        <div class="card-value" id="pm10-value">--</div>
-        <div class="card-unit">µg/m³</div>
+        <div class="card-value"><span id="pm10-value">--</span> <small>µg/m³</small></div>
       </div>
-      <div class="card stat-card">
+      <div class="card">
         <div class="card-label">Température</div>
-        <div class="card-value" id="temp-value">--</div>
-        <div class="card-unit">°C</div>
+        <div class="card-value"><span id="temp-value">--</span> <small>°C</small></div>
       </div>
-      <div class="card stat-card">
+      <div class="card">
         <div class="card-label">Humidité</div>
-        <div class="card-value" id="hum-value">--</div>
-        <div class="card-unit">%</div>
-      </div>
-      <div class="card stat-card">
-        <div class="card-label">Signal WiFi</div>
-        <div class="card-value" id="wifi-value">--</div>
-        <div class="card-unit">dBm</div>
+        <div class="card-value"><span id="hum-value">--</span> <small>%</small></div>
       </div>
     </div>
 
-    <div class="chart-section card">
-      <div class="chart-header">
-        <div class="chart-title">Analyse des données</div>
-        <div class="chart-controls">
-          <button class="btn-range active" data-range="1h">1h</button>
+    <section class="card" style="margin-bottom: 20px;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">
+        <div class="checkbox-group" style="display: flex; gap: 15px; font-size: 14px; font-weight: 500;">
+          <label><input type="checkbox" id="pm1-toggle" checked> PM1</label>
+          <label><input type="checkbox" id="pm25-toggle" checked> PM2.5</label>
+          <label><input type="checkbox" id="pm10-toggle" checked> PM10</label>
+          <label><input type="checkbox" id="temp-toggle" checked> Temp</label>
+          <label><input type="checkbox" id="hum-toggle" checked> Hum</label>
+        </div>
+        
+        <div class="range-group" style="display: flex; gap: 10px; align-items: center;">
+          <button class="btn-range" data-range="1h">1h</button>
           <button class="btn-range" data-range="24h">24h</button>
           <button class="btn-range" data-range="7j">7j</button>
-          <button class="btn-range" data-range="30j">30j</button>
+          <input type="date" id="start-date" class="date-input">
+          <button id="apply-range" class="btn-primary" style="padding: 8px 16px;">Appliquer</button>
         </div>
       </div>
-      
-      <div class="chart-canvas-container">
-        <canvas id="mainChart"></canvas>
+    </section>
+
+    <section class="card" style="height: 500px; padding: 20px;">
+      <canvas id="mainChart"></canvas>
+    </section>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-top: 20px;">
+      <div class="card" style="padding: 10px;">
+        <div class="card-label" style="margin: 10px;">Position du capteur</div>
+        <div id="map" style="height: 250px; border-radius: 12px;"></div>
       </div>
 
-      <div class="chart-footer">
-        <label><input type="checkbox" id="pm1-toggle" checked> PM1</label>
-        <label><input type="checkbox" id="pm25-toggle" checked> PM2.5</label>
-        <label><input type="checkbox" id="pm10-toggle" checked> PM10</label>
-        <label><input type="checkbox" id="temp-toggle" checked> Temp</label>
-        <label><input type="checkbox" id="hum-toggle" checked> Hum</label>
-      </div>
-    </div>
-
-    <div class="bottom-grid">
-      <div class="map-card card">
-        <div class="card-title">📍 Position du capteur</div>
-        <div id="map" style="height: 300px; border-radius: 8px;"></div>
-      </div>
-
-      <div class="export-card card">
-        <div class="card-title">📥 Exportation</div>
-        <div class="form-group">
-          <label>Début</label>
-          <input type="date" id="start-date" class="form-input">
-        </div>
-        <div class="form-group">
-          <label>Fin</label>
-          <input type="date" id="end-date" class="form-input">
-        </div>
-        <button id="apply-range" class="btn-secondary" style="width: 100%; margin-bottom: 10px;">Appliquer</button>
-        
-        <div class="form-group">
-          <label>Fréquence (minutes)</label>
-          <select id="export-freq" class="form-input">
-            <option value="1">Toutes les minutes</option>
+      <div class="card" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; text-align: center;">
+        <div class="card-label">Exporter les données</div>
+        <div style="width: 100%;">
+          <label for="export-freq" style="display: block; font-size: 13px; margin-bottom: 8px; color: var(--text-muted);">Écart entre chaque donnée :</label>
+          <select id="export-freq" style="width: 100%;">
+            <option value="1">Toutes les minutes (1m)</option>
             <option value="5">Toutes les 5 min</option>
+            <option value="15">Toutes les 15 min</option>
             <option value="30">Toutes les 30 min</option>
-            <option value="60">Toutes les heures</option>
+            <option value="60">Toutes les heures (1h)</option>
+            <option value="1440">Toutes les 24h (1j)</option>
           </select>
         </div>
-        <button id="export-csv" class="btn-primary" style="width: 100%;">📤 Télécharger le CSV</button>
+        <button id="export-csv" class="btn-primary" style="width: 100%;">
+          📤 Télécharger le CSV
+        </button>
+        <button id="reset-zoom" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; text-decoration:underline;">
+          Réinitialiser l'affichage
+        </button>
       </div>
     </div>
 
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="assets/js/snake.js"></script>
+  
   <script src="assets/js/dashboard.js"></script>
-
+  <script>
+    // Petit script pour gérer l'état actif des onglets
+    document.querySelectorAll('.nav-links a').forEach(link => {
+      if(link.href === window.location.href) link.classList.add('active');
+    });
+  </script>
+  
   <div id="snake-container" class="snake-hidden">
-    <div id="snake-panel">
-      <div class="snake-header">
-        <h2>🐍 NebuleSnake</h2>
-        <button id="snake-close">&times;</button>
-      </div>
-      <canvas id="snakeCanvas" width="400" height="400"></canvas>
-      <p class="snake-score">Score : <span id="snake-score-current">0</span></p>
+  <div id="snake-panel">
+    <div class="snake-header">
+      <h2>🐍 NebuleSnake</h2>
+      <button id="snake-close">&times;</button>
+    </div>
+    <p class="snake-subtitle">
+      Tu as tapé "snake", tu as débloqué le mode serpent.
+      <br>Flèches ou ZQSD pour jouer. 1/2/3 pour la vitesse.
+    </p>
+    <canvas id="snakeCanvas" width="400" height="400"></canvas>
+    <p class="snake-score">Score : <span id="snake-score-current">0</span></p>
+    <div class="snake-footer">
+      <span class="snake-speed">Vitesse : <span id="snake-speed-label">Normal</span></span>
+      <button id="snake-achievements-btn" class="snake-achievements-btn">🏆 Succès</button>
     </div>
   </div>
+</div>
 
+<script src="assets/js/snake.js"></script>
 </body>
 </html>
