@@ -1,31 +1,34 @@
 /* ==========================================================================
-   NebuleAir — comparaison.js (CSV + fenêtre de calibration)
-   - Lit NebuleAir CSV + AtmoSud CSV
-   - Agrège à l’heure, aligne, calcule a/b sur une plage choisie
-   - Correction : Ccorr = (Cbrut - a) / b
-   - KPIs (R², RMSE, Division) calculés SUR la plage
-   - Option : appliquer correction uniquement sur la plage
+   NebuleAir — comparaison.js (CSV + fenêtre de calibration + auto-calibration)
+   - NebuleAir CSV + AtmoSud CSV
+   - Agrégation horaire, alignement
+   - Auto-calibration sur une plage (régression y = a + b·x)
+   - Correction : x_est = (y - a) / b
+   - KPI (R², RMSE, Division) calculés sur la plage
+   - Option : appliquer la correction uniquement sur la plage
    ========================================================================== */
 
 (() => {
   "use strict";
 
-  // ---------------------- CONFIG ----------------------
+  console.log("🚀 Comparaison — MODE CSV (v2 plage calibration) ✅");
+
   const qs = new URLSearchParams(window.location.search);
 
-  // Chemins par défaut (à adapter si besoin)
   const NEBULEAIR_CSV_URL = qs.get("nebuleair") || "assets/data/nebuleair_export.csv";
   const ATMOSUD_CSV_URL   = qs.get("atmosud")   || "assets/data/MRSLCP_H_17122025au08012026.CSV";
 
   // pm1 | pm25 | pm10
   const METRIC = (qs.get("metric") || "pm25").toLowerCase();
 
-  // AtmoSud en heure locale (Décembre = UTC+1)
+  // AtmoSud = heure locale. Décembre Marseille = UTC+1
   const ATMOSUD_TZ_OFFSET_HOURS = Number(qs.get("atmosud_tz") || "1");
+
+  // Garder uniquement les valeurs validées "A"
   const REQUIRE_FLAG_A = qs.get("flagA") !== "0";
 
   const HOUR_MS = 3600000;
-  const SPAN_GAPS_MS = 2 * HOUR_MS; // connecte max 2h de trou, sinon break (adieu la rampe)
+  const SPAN_GAPS_MS = 2 * HOUR_MS; // évite les ramps bleues sur pannes longues
 
   // ---------------------- DOM ----------------------
   const el = {
@@ -34,7 +37,6 @@
     btnApply: document.getElementById("apply-calibration"),
     btnExport: document.getElementById("export-data"),
 
-    // nouveaux
     calibStart: document.getElementById("calib-start"),
     calibEnd: document.getElementById("calib-end"),
     btnAuto: document.getElementById("auto-calibration"),
@@ -52,12 +54,12 @@
   let chartInstance = null;
 
   const data = {
-    times: [],     // Date[]
-    raw: [],       // number|null
-    ref: [],       // number|null
-    corr: [],      // number|null
-    temp: [],      // number|null
-    hum: [],       // number|null
+    times: [],   // Date[]
+    raw: [],     // number|null
+    ref: [],     // number|null
+    corr: [],    // number|null
+    temp: [],
+    hum: [],
   };
 
   // ---------------------- HELPERS ----------------------
@@ -81,20 +83,6 @@
     node.textContent = value;
   }
 
-  function toDatetimeLocalValue(date) {
-    // datetime-local = heure locale sans timezone → on convertit proprement
-    const tzOffsetMin = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - tzOffsetMin * 60000);
-    return local.toISOString().slice(0, 16);
-  }
-
-  function parseDatetimeLocal(value) {
-    // new Date("YYYY-MM-DDTHH:mm") est interprété en local → parfait
-    if (!value) return null;
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
   async function fetchText(url) {
     const u = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
     const res = await fetch(encodeURI(u), { cache: "no-store" });
@@ -114,7 +102,19 @@
     URL.revokeObjectURL(url);
   }
 
-  // ---------------------- PARSE CSV ----------------------
+  function toDatetimeLocalValue(date) {
+    const tzOffsetMin = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - tzOffsetMin * 60000);
+    return local.toISOString().slice(0, 16);
+  }
+
+  function parseDatetimeLocal(value) {
+    if (!value) return null;
+    const d = new Date(value); // interprété en local => OK
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // ---------------------- PARSERS ----------------------
   function parseNebuleAirCSV(text) {
     const lines = text.split(/\r?\n/g).map(l => l.trim()).filter(Boolean);
     if (lines.length < 2) return [];
@@ -122,7 +122,6 @@
     const headers = lines[0].split(",").map(h => h.trim());
     const idx = Object.fromEntries(headers.map((h, i) => [h, i]));
 
-    // tolérance min (si vos headers changent un peu)
     const pick = (cands) => {
       for (const c of cands) if (idx[c] !== undefined) return idx[c];
       return -1;
@@ -168,7 +167,7 @@
     if (hh === 24) utcMs = Date.UTC(yyyy, mm - 1, dd, 0, min) + 24 * HOUR_MS;
     else utcMs = Date.UTC(yyyy, mm - 1, dd, hh, min);
 
-    utcMs -= tzOffsetHours * HOUR_MS; // local → UTC
+    utcMs -= tzOffsetHours * HOUR_MS; // local -> UTC
     return new Date(utcMs);
   }
 
@@ -179,9 +178,7 @@
 
     for (const line of lines) {
       if (!rowRegex.test(line)) continue;
-
       const p = line.split(";").map(x => x.trim());
-      // date;co2;flag;pm10;flag;pm25;flag;pm1;flag
       if (p.length < 9) continue;
 
       const t = parseAtmoSudDateFR(p[0], tzOffsetHours);
@@ -200,8 +197,9 @@
     return out;
   }
 
+  // ---------------------- AGGREGATION ----------------------
   function aggregateHourly(points, metric, extraKeys = []) {
-    const acc = new Map(); // hourMs -> {sum,count, extra...}
+    const acc = new Map(); // hourMs -> accum
     for (const pt of points) {
       const v = pt[metric];
       if (!isFiniteNumber(v)) continue;
@@ -213,8 +211,8 @@
         for (const ek of extraKeys) a[ek] = { sum: 0, count: 0 };
         acc.set(k, a);
       }
-      a.sum += v; a.count++;
 
+      a.sum += v; a.count++;
       for (const ek of extraKeys) {
         const ev = pt[ek];
         if (isFiniteNumber(ev)) {
@@ -237,9 +235,7 @@
     if (allKeys.length === 0) return [];
     allKeys.sort((a, b) => a - b);
 
-    const minK = allKeys[0];
-    const maxK = allKeys[allKeys.length - 1];
-
+    const minK = allKeys[0], maxK = allKeys[allKeys.length - 1];
     const keys = [];
     for (let k = minK; k <= maxK; k += HOUR_MS) keys.push(k);
     return keys;
@@ -312,28 +308,28 @@
     return { division, color };
   }
 
-  function getCalibrationWindowMs() {
-    const start = el.calibStart ? parseDatetimeLocal(el.calibStart.value) : null;
-    const end = el.calibEnd ? parseDatetimeLocal(el.calibEnd.value) : null;
+  // ---------------------- WINDOW ----------------------
+  function getWindowMs() {
+    if (!el.calibStart || !el.calibEnd) return null;
+    const s = parseDatetimeLocal(el.calibStart.value);
+    const e = parseDatetimeLocal(el.calibEnd.value);
+    if (!s || !e) return null;
 
-    if (!start || !end) return null;
-
-    const startMs = start.getTime();
-    const endMs = end.getTime();
-
+    const startMs = s.getTime();
+    const endMs = e.getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
+
     return { startMs, endMs };
   }
 
-  function getPairsWithinWindow(windowMs) {
+  function getPairs(windowMs) {
     const xRef = [];
     const yRaw = [];
 
     for (let i = 0; i < data.times.length; i++) {
       const tMs = data.times[i].getTime();
-      if (windowMs) {
-        if (tMs < windowMs.startMs || tMs > windowMs.endMs) continue;
-      }
+      if (windowMs && (tMs < windowMs.startMs || tMs > windowMs.endMs)) continue;
+
       const raw = data.raw[i];
       const ref = data.ref[i];
       if (isFiniteNumber(raw) && isFiniteNumber(ref)) {
@@ -401,49 +397,35 @@
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { position: "top" },
-          tooltip: {
-            callbacks: {
-              label(context) {
-                let label = context.dataset.label || "";
-                if (label) label += ": ";
-                if (context.parsed.y !== null) label += Number(context.parsed.y).toFixed(1) + " µg/m³";
-                return label;
-              },
-            },
-          },
-        },
+        plugins: { legend: { position: "top" } },
         scales: {
-          x: { type: "time", time: { unit: "day", displayFormats: { day: "dd/MM" } }, grid: { display: false } },
-          y: { beginAtZero: true, grid: { borderDash: [2, 4] }, title: { display: true, text: "PM (µg/m³)" } },
+          x: { type: "time", time: { unit: "day" }, grid: { display: false } },
+          y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
         },
       },
     });
   }
 
-  // ---------------------- CALC + UI ----------------------
-  function calculateKPIsOnWindow(a, b, windowMs) {
-    // R² sur raw vs ref (sur fenêtre)
-    const { xRef, yRaw } = getPairsWithinWindow(windowMs);
+  // ---------------------- KPI + CORR ----------------------
+  function calcKPIsOnWindow(b, windowMs) {
+    const { xRef, yRaw } = getPairs(windowMs);
     const r2 = rSquared(xRef, yRaw);
 
-    // RMSE sur corr vs ref (sur fenêtre)
-    const refCorr = [];
-    const yCorr = [];
+    const refArr = [];
+    const corrArr = [];
     for (let i = 0; i < data.times.length; i++) {
       const tMs = data.times[i].getTime();
-      if (windowMs) {
-        if (tMs < windowMs.startMs || tMs > windowMs.endMs) continue;
-      }
+      if (windowMs && (tMs < windowMs.startMs || tMs > windowMs.endMs)) continue;
+
       const ref = data.ref[i];
       const corr = data.corr[i];
       if (isFiniteNumber(ref) && isFiniteNumber(corr)) {
-        refCorr.push(ref);
-        yCorr.push(corr);
+        refArr.push(ref);
+        corrArr.push(corr);
       }
     }
-    const eRMSE = rmse(refCorr, yCorr);
+
+    const eRMSE = rmse(refArr, corrArr);
 
     setText(el.statR2, isFiniteNumber(r2) ? r2.toFixed(2) : "--");
     setText(el.statRMSE, isFiniteNumber(eRMSE) ? eRMSE.toFixed(1) : "--");
@@ -461,7 +443,7 @@
     const b = el.coeffB ? (parseFloat(el.coeffB.value) || 1) : 1;
     if (!isFiniteNumber(b) || b === 0) return;
 
-    const windowMs = getCalibrationWindowMs();
+    const windowMs = getWindowMs();
     const onlyWindow = !!(el.chkOnlyWindow && el.chkOnlyWindow.checked);
 
     data.corr = data.raw.map((v, i) => {
@@ -473,25 +455,31 @@
       return Math.max(0, (v - a) / b);
     });
 
-    calculateKPIsOnWindow(a, b, windowMs);
+    calcKPIsOnWindow(b, windowMs);
     renderChart();
   }
 
-  function autoCalibrateFromWindow() {
-    const windowMs = getCalibrationWindowMs();
-    const { xRef, yRaw } = getPairsWithinWindow(windowMs);
+  function autoCalibrateOnWindow() {
+    const windowMs = getWindowMs();
+    const { xRef, yRaw } = getPairs(windowMs);
 
-    if (xRef.length < 3) {
-      console.warn("Pas assez de paires (ref/raw) dans la plage pour calibrer.");
+    console.log(`🎯 Auto-calibration: ${xRef.length} paires (sur la plage)`);
+
+    if (xRef.length < 5) {
+      console.warn("Pas assez de points dans la plage pour calibrer (min ~5).");
       return;
     }
 
     const { a, b } = linearRegression(xRef, yRaw);
-    if (!isFiniteNumber(a) || !isFiniteNumber(b) || b === 0) return;
+    if (!isFiniteNumber(a) || !isFiniteNumber(b) || b === 0) {
+      console.warn("Régression invalide (a/b).");
+      return;
+    }
 
     if (el.coeffA) el.coeffA.value = a.toFixed(3);
     if (el.coeffB) el.coeffB.value = b.toFixed(3);
 
+    console.log(`✅ a=${a.toFixed(3)}  b=${b.toFixed(3)} (appliqués)`);
     updateCorrection();
   }
 
@@ -513,8 +501,10 @@
     downloadCSV(`nebuleair_comparaison_${METRIC}_${new Date().toISOString().slice(0, 10)}.csv`, rows.join("\n"));
   }
 
-  // ---------------------- LOAD DATA ----------------------
+  // ---------------------- LOAD ----------------------
   async function fetchData() {
+    console.log("📦 Lecture CSV NebuleAir + AtmoSud...");
+
     const [nebText, atmText] = await Promise.all([
       fetchText(NEBULEAIR_CSV_URL),
       fetchText(ATMOSUD_CSV_URL),
@@ -554,7 +544,7 @@
       data.corr.push(null);
     }
 
-    // init plage par défaut = première/dernière paire (raw+ref)
+    // Init plage par défaut : 1ère et dernière paire (raw + ref)
     if (el.calibStart && el.calibEnd) {
       let first = null, last = null;
       for (let i = 0; i < data.times.length; i++) {
@@ -569,14 +559,16 @@
       }
     }
 
-    // Auto-calib initiale (sur plage par défaut) si a=0/b=1
+    // Auto-calibration initiale si a/b sont encore "par défaut"
     const curA = el.coeffA ? parseFloat(el.coeffA.value) : 0;
     const curB = el.coeffB ? parseFloat(el.coeffB.value) : 1;
     const looksDefault = (!isFiniteNumber(curA) || curA === 0) && (!isFiniteNumber(curB) || curB === 1);
-    if (looksDefault && el.calibStart && el.calibEnd) autoCalibrateFromWindow();
 
-    // sinon juste appliquer
-    updateCorrection();
+    const allPairs = getPairs(getWindowMs());
+    console.log(`✅ Paires ref/raw utilisables: ${allPairs.xRef.length}`);
+
+    if (looksDefault && allPairs.xRef.length >= 5) autoCalibrateOnWindow();
+    else updateCorrection();
   }
 
   // ---------------------- INIT ----------------------
@@ -584,12 +576,17 @@
     if (el.btnApply) el.btnApply.addEventListener("click", updateCorrection);
     if (el.btnExport) el.btnExport.addEventListener("click", exportCSV);
 
-    if (el.btnAuto) el.btnAuto.addEventListener("click", autoCalibrateFromWindow);
+    // Event delegation = même si le DOM bouge, le bouton marche
+    document.addEventListener("click", (e) => {
+      const target = e.target.closest("#auto-calibration");
+      if (!target) return;
+      e.preventDefault();
+      autoCalibrateOnWindow();
+    }, { capture: true });
 
-    // option : si tu changes la plage, tu peux recalculer direct
-    if (el.calibStart) el.calibStart.addEventListener("change", () => updateCorrection());
-    if (el.calibEnd) el.calibEnd.addEventListener("change", () => updateCorrection());
-    if (el.chkOnlyWindow) el.chkOnlyWindow.addEventListener("change", () => updateCorrection());
+    if (el.calibStart) el.calibStart.addEventListener("change", updateCorrection);
+    if (el.calibEnd) el.calibEnd.addEventListener("change", updateCorrection);
+    if (el.chkOnlyWindow) el.chkOnlyWindow.addEventListener("change", updateCorrection);
 
     fetchData().catch((e) => {
       console.error("❌ Erreur comparaison.js:", e);
