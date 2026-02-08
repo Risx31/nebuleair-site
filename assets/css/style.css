@@ -306,3 +306,19 @@ body.dark input[type="number"] {
     align-items: center;
     justify-content: center;
 }
+
+/* Overlay snake */
+#snake-container{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.55);
+  z-index: 99999;
+}
+
+/* Caché par défaut */
+#snake-container.snake-hidden{
+  display: none !important;
+}
