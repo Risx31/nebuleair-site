@@ -502,6 +502,18 @@ function loadPM25Calibration() {
 
     if (el.coeffA) el.coeffA.value = a.toFixed(3);
     if (el.coeffB) el.coeffB.value = b.toFixed(3);
+     const s = el.calibStart ? el.calibStart.value : null;
+const e = el.calibEnd ? el.calibEnd.value : null;
+
+savePM25Calibration({
+  a,
+  b,
+  startISO: s ? new Date(s).toISOString() : null,
+  endISO: e ? new Date(e).toISOString() : null,
+  method: "auto"
+});
+
+     
 
     console.log(`✅ a=${a.toFixed(3)}  b=${b.toFixed(3)} (appliqués)`);
     updateCorrection();
