@@ -1,122 +1,307 @@
+// assets/js/dashboard.js
+
 document.addEventListener("DOMContentLoaded", function () {
+    console.log("[NebuleAir] Dashboard JS chargé");
+
     const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
     const BUCKET = "Nodule Air";
 
     let currentRange = "1h";
     let customRange = null;
-    let labelsRaw = [];
-    let series = { pm1: [], pm25: [], pm10: [], temperature: [], humidite: [], rssi: [] };
 
-    // --- 1. THÈME & BANANE ---
+    // Timestamps bruts (Date)
+    let labelsRaw = [];
+
+    // Séries de valeurs
+    let series = {
+        pm1: [],
+        pm25: [],
+        pm10: [],
+        temperature: [],
+        humidite: [],
+        rssi: []
+    };
+
+    // ==========================================
+    //  1. GESTION DU THÈME (MODE NUIT / BANANE)
+    // ==========================================
     const body = document.body;
-    const themeBtn = document.getElementById("themeToggle");
+    const themeToggle = document.getElementById("themeToggle");
     const banana = document.getElementById("userProfileBanana");
 
     function toggleTheme() {
-        body.classList.toggle("dark");
-        body.classList.toggle("light");
-        localStorage.setItem("theme", body.classList.contains("dark") ? "dark" : "light");
+        if (body.classList.contains("light")) {
+            body.classList.replace("light", "dark");
+            localStorage.setItem("theme", "dark");
+        } else {
+            body.classList.replace("dark", "light");
+            localStorage.setItem("theme", "light");
+        }
     }
 
-    [themeBtn, banana].forEach(el => el?.addEventListener("click", toggleTheme));
-    body.className = localStorage.getItem("theme") || "light";
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+    if (banana) banana.addEventListener("click", toggleTheme);
 
-    // --- 2. GRAPHIQUE ---
-    const ctx = document.getElementById("mainChart")?.getContext("2d");
-    if (!ctx) return;
+    const savedTheme = localStorage.getItem("theme") || "light";
+    body.className = savedTheme;
 
+    // ============================
+    //  2. INIT CHART.JS
+    // ============================
+    const canvas = document.getElementById("mainChart");
+    if (!canvas) {
+        console.error("[NebuleAir] Canvas #mainChart introuvable");
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
     const mainChart = new Chart(ctx, {
         type: "line",
         data: {
             datasets: [
-                { label: "PM1", data: [], borderColor: "#007bff", yAxisID: 'y', tension: 0.3 },
-                { label: "PM2.5", data: [], borderColor: "#ff9800", yAxisID: 'y', tension: 0.3 },
-                { label: "PM10", data: [], borderColor: "#e91e63", yAxisID: 'y', tension: 0.3 },
-                { label: "Temp", data: [], borderColor: "#00c853", yAxisID: 'y1', tension: 0.3 },
-                { label: "Hum", data: [], borderColor: "#26c6da", yAxisID: 'y1', tension: 0.3 }
+                {
+                    label: "PM1",
+                    data: [],
+                    borderColor: "#007bff",
+                    backgroundColor: "rgba(0, 123, 255, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: "PM2.5",
+                    data: [],
+                    borderColor: "#ff9800",
+                    backgroundColor: "rgba(255, 152, 0, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: "PM10",
+                    data: [],
+                    borderColor: "#e91e63",
+                    backgroundColor: "rgba(233, 30, 99, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: "Température",
+                    data: [],
+                    borderColor: "#00c853",
+                    backgroundColor: "rgba(0, 200, 83, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: "Humidité",
+                    data: [],
+                    borderColor: "#26c6da",
+                    backgroundColor: "rgba(38, 198, 218, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y1'
+                }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: { position: "top", labels: { usePointStyle: true } }
+            },
             scales: {
-                x: { type: "time", time: { unit: 'minute' } },
-                y: { position: 'left', beginAtZero: true },
-                y1: { position: 'right', grid: { drawOnChartArea: false } }
+                x: {
+                    type: "time",
+                    time: {
+                        tooltipFormat: "dd MMM yyyy HH:mm",
+                        displayFormats: { minute: "HH:mm", hour: "dd HH'h'", day: "dd MMM" }
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    title: { display: true, text: "µg/m³" }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: "°C / %" }
+                }
             }
         }
     });
 
-    // --- 3. LOGIQUE DATA ---
-    async function fetchField(field) {
-        let range = customRange ? `|> range(start: ${customRange.start}, stop: ${customRange.stop})` : `|> range(start: -${currentRange})`;
-        const query = `from(bucket: "${BUCKET}") ${range} |> filter(fn: (r) => r._measurement == "nebuleair" and r._field == "${field}") |> aggregateWindow(every: 1m, fn: mean, createEmpty: false) |> yield()`;
-        
-        const resp = await fetch(INFLUX_URL, { method: "POST", body: query });
-        const text = await resp.text();
-        const lines = text.split("\n").filter(l => l.includes(",") && !l.startsWith("#"));
-        const header = lines[0]?.split(",");
-        const tIdx = header?.indexOf("_time"), vIdx = header?.indexOf("_value");
-        
-        return {
-            labels: lines.slice(1).map(l => l.split(",")[tIdx]),
-            values: lines.slice(1).map(l => parseFloat(l.split(",")[vIdx]))
-        };
+    // ============================
+    //  3. HELPERS INFLUX & FETCH
+    // ============================
+    function parseInfluxCsv(raw) {
+        const lines = raw.split("\n").map(l => l.trim()).filter(l => l !== "" && !l.startsWith("#"));
+        if (lines.length < 2) return { labels: [], values: [] };
+        const header = lines[0].split(",");
+        const tIdx = header.indexOf("_time"), vIdx = header.indexOf("_value");
+        const labels = [], values = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(",");
+            const v = parseFloat(cols[vIdx]);
+            if (!isNaN(v)) { labels.push(cols[tIdx]); values.push(v); }
+        }
+        return { labels, values };
     }
 
+    function buildRangeClause() {
+        if (customRange) return `|> range(start: ${customRange.start}, stop: ${customRange.stop})`;
+        const map = { "1h": "-1h", "24h": "-24h", "7j": "-7d", "30j": "-30d" };
+        return `|> range(start: ${map[currentRange] || "-1h"})`;
+    }
+
+    function getWindowEvery() {
+        if (customRange) return "5m";
+        const map = { "1h": "1m", "24h": "5m", "7j": "30m", "30j": "1h" };
+        return map[currentRange] || "1m";
+    }
+
+    async function fetchField(field) {
+        const fluxQuery = `from(bucket: "${BUCKET}") ${buildRangeClause()} |> filter(fn: (r) => r._measurement == "nebuleair" and r._field == "${field}") |> aggregateWindow(every: ${getWindowEvery()}, fn: mean, createEmpty: false) |> yield()`;
+        const response = await fetch(INFLUX_URL, { method: "POST", body: fluxQuery });
+        return parseInfluxCsv(await response.text());
+    }
+
+    // ============================
+    //  4. MISE À JOUR UI
+    // ============================
     function updateUI() {
-        const maps = { "pm1-value": series.pm1, "pm25-value": series.pm25, "pm10-value": series.pm10, "temp-value": series.temperature, "hum-value": series.humidite, "wifi-value": series.rssi };
-        for (let id in maps) {
+        // MAJ des Cartes de valeurs
+        const mappings = {
+            "pm1-value": series.pm1,
+            "pm25-value": series.pm25,
+            "pm10-value": series.pm10,
+            "temp-value": series.temperature,
+            "hum-value": series.humidite,
+            "wifi-value": series.rssi
+        };
+
+        for (let id in mappings) {
             const el = document.getElementById(id);
-            if (el) el.textContent = maps[id].length ? maps[id][maps[id].length - 1].toFixed(1) : "--";
+            if (el) {
+                const arr = mappings[id];
+                const lastVal = (arr && arr.length > 0) ? arr[arr.length - 1] : null;
+                el.textContent = (lastVal !== null && !isNaN(lastVal)) ? lastVal.toFixed(1) : "--";
+            }
         }
-        
-        const keys = ["pm1", "pm25", "pm10", "temperature", "humidite"];
-        keys.forEach((k, i) => {
-            mainChart.data.datasets[i].data = labelsRaw.map((t, idx) => ({ x: t, y: series[k][idx] }));
-        });
-        mainChart.update();
+
+        // MAJ du Graphique
+        if (mainChart) {
+            const keys = ["pm1", "pm25", "pm10", "temperature", "humidite"];
+            keys.forEach((key, i) => {
+                mainChart.data.datasets[i].data = labelsRaw.map((t, idx) => ({ x: t, y: series[key][idx] }));
+            });
+            mainChart.update();
+        }
     }
 
     async function loadAllData() {
         try {
-            const res = await Promise.all(["pm1", "pm25", "pm10", "temperature", "humidite", "rssi"].map(f => fetchField(f)));
-            body.classList.remove("state-error");
-            labelsRaw = res[0].labels.map(t => new Date(t));
-            series.pm1 = res[0].values; series.pm25 = res[1].values; series.pm10 = res[2].values;
-            series.temperature = res[3].values; series.humidite = res[4].values; series.rssi = res[5].values;
+            const fields = ["pm1", "pm25", "pm10", "temperature", "humidite", "rssi"];
+            const results = await Promise.all(fields.map(f => fetchField(f)));
+            
+            labelsRaw = results[0].labels.map(t => new Date(t));
+            series.pm1 = results[0].values;
+            series.pm25 = results[1].values;
+            series.pm10 = results[2].values;
+            series.temperature = results[3].values;
+            series.humidite = results[4].values;
+            series.rssi = results[5].values;
+
             updateUI();
-        } catch (e) {
-            body.classList.add("state-error");
+        } catch (err) {
+            console.error("[NebuleAir] Erreur chargement :", err);
         }
     }
 
-    // --- 4. ÉVÉNEMENTS ---
-    document.querySelectorAll(".btn-range").forEach(b => b.addEventListener("click", () => {
-        document.querySelectorAll(".btn-range").forEach(btn => btn.classList.remove("active"));
-        b.classList.add("active");
-        currentRange = b.dataset.range.replace('j', 'd');
-        customRange = null;
-        loadAllData();
-    }));
-
-    // Snake
-    let secret = "snake", buffer = "";
-    document.addEventListener("keydown", (e) => {
-        if (e.target.tagName === "INPUT") return;
-        buffer = (buffer + e.key.toLowerCase()).slice(-secret.length);
-        if (buffer === secret) {
-            document.getElementById("snake-container")?.classList.remove("snake-hidden");
-            window.NebuleAirSnake?.init("snakeCanvas");
-        }
-        if (e.key === "Escape") document.getElementById("snake-container")?.classList.add("snake-hidden");
+    // ============================
+    //  5. EVENTS
+    // ============================
+    const rangeButtons = document.querySelectorAll(".btn-range");
+    rangeButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            rangeButtons.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            currentRange = btn.dataset.range;
+            customRange = null;
+            loadAllData();
+        });
     });
-    document.getElementById("snake-close")?.addEventListener("click", () => document.getElementById("snake-container").classList.add("snake-hidden"));
 
-    // Map
-    const map = L.map("map").setView([43.30544, 5.39487], 18);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-    L.marker([43.30544, 5.39487]).addTo(map);
+    document.getElementById("apply-range")?.addEventListener("click", () => {
+        const start = document.getElementById("start-date").value;
+        const end = document.getElementById("end-date")?.value || new Date().toISOString().split('T')[0];
+        if (!start) return alert("Date de début requise");
+        customRange = { start: new Date(start).toISOString(), stop: new Date(end).toISOString() };
+        rangeButtons.forEach(b => b.classList.remove("active"));
+        loadAllData();
+    });
+
+    // Visibilité des courbes
+    ["pm1", "pm25", "pm10", "temp", "hum"].forEach((id, idx) => {
+        document.getElementById(`${id}-toggle`)?.addEventListener("change", (e) => {
+            mainChart.setDatasetVisibility(idx, e.target.checked);
+            mainChart.update();
+        });
+    });
+
+    // Export CSV
+    document.getElementById("export-csv")?.addEventListener("click", () => {
+        if (!labelsRaw.length) return alert("Pas de données");
+        const freq = parseInt(document.getElementById("export-freq").value) || 1;
+        let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
+        for (let i = 0; i < labelsRaw.length; i += freq) {
+            csv += `${labelsRaw[i].toISOString()},${series.pm1[i]||''},${series.pm25[i]||''},${series.pm10[i]||''},${series.temperature[i]||''},${series.humidite[i]||''}\n`;
+        }
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "nebuleair_export.csv";
+        a.click();
+    });
+
+    // Map Leaflet
+    (function() {
+        const lat = 43.30544, lon = 5.39487;
+        const mapEl = document.getElementById("map");
+        if (!mapEl || typeof L === 'undefined') return;
+        const map = L.map("map").setView([lat, lon], 18);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+        L.marker([lat, lon]).addTo(map).bindPopup("<b>Capteur NebuleAir</b>");
+    })();
+
+    // Snake Easter Egg
+    (function() {
+        const secret = "snake"; let buffer = "";
+        const container = document.getElementById("snake-container");
+        document.addEventListener("keydown", (e) => {
+            if (document.activeElement.tagName === "INPUT") return;
+            buffer = (buffer + e.key.toLowerCase()).slice(-secret.length);
+            if (buffer === secret) {
+                container?.classList.remove("snake-hidden");
+                window.NebuleAirSnake?.init("snakeCanvas");
+            }
+            if (e.key === "Escape") container?.classList.add("snake-hidden");
+        });
+        document.getElementById("snake-close")?.addEventListener("click", () => container?.classList.add("snake-hidden"));
+    })();
 
     loadAllData();
     setInterval(loadAllData, 60000);
