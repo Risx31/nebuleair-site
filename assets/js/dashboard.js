@@ -1,604 +1,308 @@
-/* ==========================================================================
-   NebuleAir — dashboard.js (API live + chart + map + export + PM2.5 corrigé)
-   - Source principale: API AirCarto (dataNebuleAir)
-   - UI: index.html (IDs conformes)
-   - Correction PM2.5: (pm25 - a) / b depuis comparaison.js via localStorage
-   ========================================================================== */
+// assets/js/dashboard.js
 
-(() => {
-  "use strict";
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("[NebuleAir] Dashboard JS chargé");
 
-  console.log("🚀 Dashboard — MODE API ✅");
+    const INFLUX_URL = "https://nebuleairproxy.onrender.com/query";
+    const BUCKET = "Nodule Air";
 
-  // ---------------------- CONFIG ----------------------
-  const qs = new URLSearchParams(window.location.search);
+    let currentRange = "1h";
+    let customRange = null;
 
-  // Capteur (modifiable via ?capteurID=...)
-  const CAPTEUR_ID = qs.get("capteurID") || "nebuleair-pro101";
+    // Timestamps bruts (Date)
+    let labelsRaw = [];
 
-  // API AirCarto (modifiable via ?api=...)
-  const SENSOR_API_BASE =
-    qs.get("api") ||
-    "https://api.aircarto.fr/capteurs/dataNebuleAir";
-
-  // Fallback CSV (si tu veux pouvoir tester en local)
-  const FALLBACK_CSV_URL = qs.get("nebuleair_csv") || null; // ex: assets/data/nebuleair_export.csv
-
-  // ---------------------- LocalStorage keys (partagés avec comparaison.js) ----
-  const PM25_CAL_KEY = "nebuleair.pm25.calibration.v1";
-  const PM25_CORR_ENABLED_KEY = "nebuleair.pm25.correction.enabled.v1";
-
-  // ---------------------- DOM ----------------------
-  const el = {
-    // Cards
-    pm1: document.getElementById("pm1-value"),
-    pm25: document.getElementById("pm25-value"),
-    pm10: document.getElementById("pm10-value"),
-    temp: document.getElementById("temp-value"),
-    hum: document.getElementById("hum-value"),
-
-    // Toggles
-    tPM1: document.getElementById("pm1-toggle"),
-    tPM25: document.getElementById("pm25-toggle"),
-    tPM10: document.getElementById("pm10-toggle"),
-    tTemp: document.getElementById("temp-toggle"),
-    tHum: document.getElementById("hum-toggle"),
-
-    // Range controls
-    start: document.getElementById("start-date"),
-    end: document.getElementById("end-date"),
-    applyRange: document.getElementById("apply-range"),
-    rangeBtns: Array.from(document.querySelectorAll(".btn-range")),
-
-    // Correction toggle
-    corrToggle: document.getElementById("pm25-correction-toggle"),
-    corrInfo: document.getElementById("pm25-correction-info"),
-
-    // Chart + map
-    canvas: document.getElementById("mainChart"),
-    map: document.getElementById("map"),
-
-    // Export
-    exportFreq: document.getElementById("export-freq"),
-    exportBtn: document.getElementById("export-csv"),
-
-    // Reset
-    resetZoom: document.getElementById("reset-zoom"),
-  };
-
-  // ---------------------- STATE ----------------------
-  let chartInstance = null;
-  let leafletMap = null;
-  let leafletMarker = null;
-
-  let points = []; // points de la plage courante : {t:Date, pm1, pm25, pm10, temperature, humidite, lat?, lon?}
-
-  // ---------------------- UTIL ----------------------
-  const HOUR_MS = 3600000;
-
-  function toFloat(v) {
-    if (v == null) return NaN;
-    const s = String(v).trim();
-    if (!s) return NaN;
-    return Number.parseFloat(s.replace(",", "."));
-  }
-
-  function isFiniteNumber(n) {
-    return typeof n === "number" && Number.isFinite(n);
-  }
-
-  function setText(node, value) {
-    if (!node) return;
-    node.textContent = value;
-  }
-
-  function clamp0(x) {
-    return (!Number.isFinite(x) || x < 0) ? 0 : x;
-  }
-
-  function toDatetimeLocalValue(date) {
-    const tzOffsetMin = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - tzOffsetMin * 60000);
-    return local.toISOString().slice(0, 16);
-  }
-
-  function parseDatetimeLocal(value) {
-    if (!value) return null;
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  async function fetchJSON(url) {
-    const u = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
-    const res = await fetch(encodeURI(u), { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    return await res.json();
-  }
-
-  async function fetchText(url) {
-    const u = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
-    const res = await fetch(encodeURI(u), { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    return await res.text();
-  }
-
-  function downloadCSV(filename, content) {
-    const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  // ---------------------- PM2.5 CORRECTION ----------------------
-  function readPM25Calibration() {
-    try {
-      const raw = localStorage.getItem(PM25_CAL_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function isPM25CorrectionEnabled() {
-    return localStorage.getItem(PM25_CORR_ENABLED_KEY) === "1";
-  }
-
-  function correctPM25(value, isoTime) {
-    const v = Number(value);
-    if (!Number.isFinite(v)) return value;
-
-    if (!isPM25CorrectionEnabled()) return v;
-
-    const cal = readPM25Calibration();
-    if (!cal) return v;
-
-    const a = Number(cal.a);
-    const b = Number(cal.b);
-    if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return v;
-
-    // Optionnel: correction seulement dans la plage calibrée
-    if (cal.startISO && cal.endISO && isoTime) {
-      const t = new Date(isoTime).getTime();
-      const t0 = new Date(cal.startISO).getTime();
-      const t1 = new Date(cal.endISO).getTime();
-      if (Number.isFinite(t) && Number.isFinite(t0) && Number.isFinite(t1)) {
-        if (t < t0 || t > t1) return v;
-      }
-    }
-
-    return clamp0((v - a) / b);
-  }
-
-  function initPM25CorrectionUI() {
-    if (!el.corrToggle) return;
-
-    const cal = readPM25Calibration();
-
-    if (!cal) {
-      el.corrToggle.checked = false;
-      el.corrToggle.disabled = true;
-      if (el.corrInfo) el.corrInfo.textContent = " (aucune calibration)";
-      return;
-    }
-
-    el.corrToggle.disabled = false;
-    el.corrToggle.checked = isPM25CorrectionEnabled();
-
-    if (el.corrInfo) {
-      const a = Number(cal.a);
-      const b = Number(cal.b);
-      const when = cal.savedAt ? new Date(cal.savedAt).toLocaleString() : "";
-      el.corrInfo.textContent = ` (a=${a.toFixed(3)}, b=${b.toFixed(3)}${when ? " • " + when : ""})`;
-    }
-
-    el.corrToggle.addEventListener("change", () => {
-      localStorage.setItem(PM25_CORR_ENABLED_KEY, el.corrToggle.checked ? "1" : "0");
-      renderAll(); // re-render chart + cards
-    });
-  }
-
-  // ---------------------- PARSING API ----------------------
-  function parseNebuleAirAPI(jsonData) {
-    // jsonData: array d’objets
-    const out = [];
-
-    const pmKeys = {
-      pm1:  ["pm1", "PM1", "PM1.0", "pm_1"],
-      pm25: ["pm25", "PM25", "PM2.5", "pm2_5", "pm2.5"],
-      pm10: ["pm10", "PM10", "pm_10"],
-      temp: ["temperature", "temp", "T"],
-      hum:  ["humidite", "humidity", "RH", "hum"],
-      lat:  ["lat", "latitude"],
-      lon:  ["lon", "lng", "longitude"],
+    // Séries de valeurs
+    let series = {
+        pm1: [],
+        pm25: [],
+        pm10: [],
+        temperature: [],
+        humidite: [],
+        rssi: []
     };
 
-    const pick = (obj, keys) => {
-      for (const k of keys) {
-        if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
-      }
-      return null;
-    };
+    // ==========================================
+    //  1. GESTION DU THÈME (MODE NUIT / BANANE)
+    // ==========================================
+    const body = document.body;
+    const themeToggle = document.getElementById("themeToggle");
+    const banana = document.getElementById("userProfileBanana");
 
-    for (const d of (Array.isArray(jsonData) ? jsonData : [])) {
-      const time = d.timestamp || d.time || d.date || d.t;
-      if (!time) continue;
-
-      const t = new Date(time);
-      if (Number.isNaN(t.getTime())) continue;
-
-      out.push({
-        t,
-        pm1: toFloat(pick(d, pmKeys.pm1)),
-        pm25: toFloat(pick(d, pmKeys.pm25)),
-        pm10: toFloat(pick(d, pmKeys.pm10)),
-        temperature: toFloat(pick(d, pmKeys.temp)),
-        humidite: toFloat(pick(d, pmKeys.hum)),
-        lat: toFloat(pick(d, pmKeys.lat)),
-        lon: toFloat(pick(d, pmKeys.lon)),
-      });
-    }
-
-    out.sort((a, b) => a.t - b.t);
-    return out;
-  }
-
-  // ---------------------- FALLBACK CSV (optionnel) ----------------------
-  function parseNebuleAirCSV(text) {
-    const lines = text.split(/\r?\n/g).map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) return [];
-
-    const headers = lines[0].split(",").map(h => h.trim());
-    const idx = Object.fromEntries(headers.map((h, i) => [h, i]));
-
-    const pickIndex = (cands) => {
-      for (const c of cands) if (idx[c] !== undefined) return idx[c];
-      return -1;
-    };
-
-    const iTime = pickIndex(["time", "timestamp", "date", "t"]);
-    const iPM1  = pickIndex(["pm1", "PM1"]);
-    const iPM25 = pickIndex(["pm25", "PM25", "PM2.5", "pm2_5", "pm2.5"]);
-    const iPM10 = pickIndex(["pm10", "PM10"]);
-    const iTemp = pickIndex(["temperature", "temp", "T"]);
-    const iHum  = pickIndex(["humidite", "humidity", "RH", "hum"]);
-    const iLat  = pickIndex(["lat", "latitude"]);
-    const iLon  = pickIndex(["lon", "lng", "longitude"]);
-
-    if (iTime < 0) return [];
-
-    const out = [];
-    for (let i = 1; i < lines.length; i++) {
-      const p = lines[i].split(",").map(x => x.trim());
-      if (!p[iTime]) continue;
-
-      const t = new Date(p[iTime]);
-      if (Number.isNaN(t.getTime())) continue;
-
-      out.push({
-        t,
-        pm1: iPM1 >= 0 ? toFloat(p[iPM1]) : NaN,
-        pm25: iPM25 >= 0 ? toFloat(p[iPM25]) : NaN,
-        pm10: iPM10 >= 0 ? toFloat(p[iPM10]) : NaN,
-        temperature: iTemp >= 0 ? toFloat(p[iTemp]) : NaN,
-        humidite: iHum >= 0 ? toFloat(p[iHum]) : NaN,
-        lat: iLat >= 0 ? toFloat(p[iLat]) : NaN,
-        lon: iLon >= 0 ? toFloat(p[iLon]) : NaN,
-      });
-    }
-
-    out.sort((a, b) => a.t - b.t);
-    return out;
-  }
-
-  // ---------------------- RANGE ----------------------
-  function ensureDefaultRange() {
-    const now = new Date();
-    if (el.end && !el.end.value) el.end.value = toDatetimeLocalValue(now);
-    if (el.start && !el.start.value) el.start.value = toDatetimeLocalValue(new Date(now.getTime() - 24 * HOUR_MS));
-  }
-
-  function getCurrentRange() {
-    ensureDefaultRange();
-
-    const s = parseDatetimeLocal(el.start?.value);
-    const e = parseDatetimeLocal(el.end?.value);
-
-    if (!s || !e || e <= s) {
-      const now = new Date();
-      return { start: new Date(now.getTime() - 24 * HOUR_MS), end: now };
-    }
-    return { start: s, end: e };
-  }
-
-  function setRangePreset(preset) {
-    const now = new Date();
-    let start;
-    if (preset === "1h") start = new Date(now.getTime() - 1 * HOUR_MS);
-    else if (preset === "24h") start = new Date(now.getTime() - 24 * HOUR_MS);
-    else if (preset === "7j") start = new Date(now.getTime() - 7 * 24 * HOUR_MS);
-    else return;
-
-    if (el.start) el.start.value = toDatetimeLocalValue(start);
-    if (el.end) el.end.value = toDatetimeLocalValue(now);
-
-    refreshData(); // recharge API avec la nouvelle plage
-  }
-
-  // ---------------------- API BUILD ----------------------
-  function formatApiRange(start, end) {
-    // API accepte des ISO (le fichier comparaison “original” utilisait -7d / now)
-    // Pour être robuste, on envoie ISO
-    return {
-      start: start.toISOString(),
-      end: end.toISOString(),
-    };
-  }
-
-  function getExportFreq() {
-    // ton select est en minutes (1,5,15,...)
-    const m = el.exportFreq ? Number(el.exportFreq.value) : 10;
-    const minutes = Number.isFinite(m) && m > 0 ? m : 10;
-    return `${minutes}m`;
-  }
-
-  function buildApiUrl(start, end, freq) {
-    const u = new URL(SENSOR_API_BASE);
-    u.searchParams.set("capteurID", CAPTEUR_ID);
-    u.searchParams.set("start", start);
-    u.searchParams.set("end", end);
-    u.searchParams.set("freq", freq);
-    u.searchParams.set("format", "JSON");
-    return u.toString();
-  }
-
-  // ---------------------- RENDER: CARDS ----------------------
-  function updateCards() {
-    const lastValid = (key) => {
-      for (let i = points.length - 1; i >= 0; i--) {
-        const v = points[i][key];
-        if (isFiniteNumber(v)) return points[i];
-      }
-      return null;
-    };
-
-    const p1 = lastValid("pm1");
-    const p25 = lastValid("pm25");
-    const p10 = lastValid("pm10");
-    const pt = lastValid("temperature");
-    const ph = lastValid("humidite");
-
-    setText(el.pm1, p1 ? p1.pm1.toFixed(1) : "--");
-
-    if (p25) {
-      const iso = p25.t.toISOString();
-      const v = correctPM25(p25.pm25, iso);
-      setText(el.pm25, Number.isFinite(v) ? v.toFixed(1) : "--");
-    } else {
-      setText(el.pm25, "--");
-    }
-
-    setText(el.pm10, p10 ? p10.pm10.toFixed(1) : "--");
-    setText(el.temp, pt ? pt.temperature.toFixed(1) : "--");
-    setText(el.hum, ph ? ph.humidite.toFixed(0) : "--");
-  }
-
-  // ---------------------- RENDER: CHART ----------------------
-  function renderChart() {
-    if (!el.canvas || typeof Chart === "undefined") return;
-
-    const times = points.map(p => p.t);
-    const pm1 = points.map(p => (isFiniteNumber(p.pm1) ? p.pm1 : null));
-    const pm25Raw = points.map(p => (isFiniteNumber(p.pm25) ? p.pm25 : null));
-    const pm25 = pm25Raw.map((v, i) => (isFiniteNumber(v) ? correctPM25(v, times[i].toISOString()) : null));
-    const pm10 = points.map(p => (isFiniteNumber(p.pm10) ? p.pm10 : null));
-    const temp = points.map(p => (isFiniteNumber(p.temperature) ? p.temperature : null));
-    const hum = points.map(p => (isFiniteNumber(p.humidite) ? p.humidite : null));
-
-    const datasets = [];
-
-    if (!el.tPM1 || el.tPM1.checked) datasets.push({ label: "PM1", data: pm1, borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true });
-    if (!el.tPM25 || el.tPM25.checked) datasets.push({ label: isPM25CorrectionEnabled() ? "PM2.5 (corrigé)" : "PM2.5", data: pm25, borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true });
-    if (!el.tPM10 || el.tPM10.checked) datasets.push({ label: "PM10", data: pm10, borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true });
-    if (!el.tTemp || el.tTemp.checked) datasets.push({ label: "Temp (°C)", data: temp, yAxisID: "y2", borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true });
-    if (!el.tHum || el.tHum.checked) datasets.push({ label: "Hum (%)", data: hum, yAxisID: "y2", borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true });
-
-    if (chartInstance) {
-      chartInstance.data.labels = times;
-      chartInstance.data.datasets = datasets;
-      chartInstance.update();
-      return;
-    }
-
-    const ctx = el.canvas.getContext("2d");
-    chartInstance = new Chart(ctx, {
-      type: "line",
-      data: { labels: times, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: { legend: { position: "top" } },
-        scales: {
-          x: { type: "time", time: { unit: "hour" }, grid: { display: false } },
-          y: { beginAtZero: true, title: { display: true, text: "PM (µg/m³)" } },
-          y2: { position: "right", grid: { display: false }, title: { display: true, text: "Temp/Hum" } },
-        },
-      },
-    });
-  }
-
-  // ---------------------- RENDER: MAP ----------------------
-  function renderMap() {
-    if (!el.map || typeof L === "undefined") return;
-
-    // Dernière position valide dans la plage
-    let lat = NaN, lon = NaN;
-    for (let i = points.length - 1; i >= 0; i--) {
-      const p = points[i];
-      if (isFiniteNumber(p.lat) && isFiniteNumber(p.lon)) {
-        lat = p.lat; lon = p.lon;
-        break;
-      }
-    }
-
-    // Si API ne donne pas lat/lon → on prend un fallback configurable
-    if (!isFiniteNumber(lat) || !isFiniteNumber(lon)) {
-      lat = Number(qs.get("lat") || 43.2965);
-      lon = Number(qs.get("lon") || 5.3698);
-    }
-
-    if (!leafletMap) {
-      leafletMap = L.map(el.map).setView([lat, lon], 15);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap",
-      }).addTo(leafletMap);
-
-      leafletMarker = L.marker([lat, lon]).addTo(leafletMap);
-      leafletMarker.bindPopup("NebuleAir (dernière position)");
-      return;
-    }
-
-    leafletMap.setView([lat, lon], leafletMap.getZoom());
-    if (leafletMarker) leafletMarker.setLatLng([lat, lon]);
-  }
-
-  function renderAll() {
-    updateCards();
-    renderChart();
-    renderMap();
-  }
-
-  // ---------------------- EXPORT CSV ----------------------
-  function exportCSV() {
-    const rows = [];
-    rows.push(["time", "pm1", "pm25_raw", "pm25_corrected", "pm10", "temperature", "humidite", "lat", "lon"].join(","));
-
-    for (const p of points) {
-      const iso = p.t.toISOString();
-      const pm25Raw = isFiniteNumber(p.pm25) ? p.pm25 : "";
-      const pm25Corr = isFiniteNumber(p.pm25) ? correctPM25(p.pm25, iso) : "";
-
-      rows.push([
-        iso,
-        isFiniteNumber(p.pm1) ? p.pm1 : "",
-        pm25Raw,
-        (pm25Corr !== "" && Number.isFinite(pm25Corr)) ? pm25Corr : "",
-        isFiniteNumber(p.pm10) ? p.pm10 : "",
-        isFiniteNumber(p.temperature) ? p.temperature : "",
-        isFiniteNumber(p.humidite) ? p.humidite : "",
-        isFiniteNumber(p.lat) ? p.lat : "",
-        isFiniteNumber(p.lon) ? p.lon : "",
-      ].join(","));
-    }
-
-    const { start, end } = getCurrentRange();
-    downloadCSV(
-      `nebuleair_dashboard_${start.toISOString().slice(0,10)}_to_${end.toISOString().slice(0,10)}.csv`,
-      rows.join("\n")
-    );
-  }
-
-  // ---------------------- DATA LOAD ----------------------
-  async function refreshData() {
-    try {
-      const { start, end } = getCurrentRange();
-      const freq = getExportFreq(); // on peut aussi mettre un freq fixe pour l'affichage si tu veux
-      const { start: apiStart, end: apiEnd } = formatApiRange(start, end);
-
-      const url = buildApiUrl(apiStart, apiEnd, freq);
-      console.log("📡 API:", url);
-
-      const json = await fetchJSON(url);
-      points = parseNebuleAirAPI(json);
-
-      console.log(`✅ Points: ${points.length}`);
-
-      renderAll();
-    } catch (err) {
-      console.error("❌ Erreur API dashboard:", err);
-
-      // Fallback CSV si configuré
-      if (FALLBACK_CSV_URL) {
-        try {
-          const txt = await fetchText(FALLBACK_CSV_URL);
-          const all = parseNebuleAirCSV(txt);
-
-          const { start, end } = getCurrentRange();
-          const sMs = start.getTime(), eMs = end.getTime();
-          points = all.filter(p => p.t.getTime() >= sMs && p.t.getTime() <= eMs);
-
-          console.warn(`⚠️ Fallback CSV utilisé: ${points.length} points`);
-          renderAll();
-          return;
-        } catch (e2) {
-          console.error("❌ Fallback CSV impossible:", e2);
+    function toggleTheme() {
+        if (body.classList.contains("light")) {
+            body.classList.replace("light", "dark");
+            localStorage.setItem("theme", "dark");
+        } else {
+            body.classList.replace("dark", "light");
+            localStorage.setItem("theme", "light");
         }
-      }
-
-      // En dernier recours: UI vide mais stable
-      points = [];
-      renderAll();
     }
-  }
 
-  // ---------------------- EVENTS ----------------------
-  function bindEvents() {
-    // Toggles séries
-    [el.tPM1, el.tPM25, el.tPM10, el.tTemp, el.tHum].forEach(t => {
-      if (!t) return;
-      t.addEventListener("change", renderChart);
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+    if (banana) banana.addEventListener("click", toggleTheme);
+
+    const savedTheme = localStorage.getItem("theme") || "light";
+    body.className = savedTheme;
+
+    // ============================
+    //  2. INIT CHART.JS
+    // ============================
+    const canvas = document.getElementById("mainChart");
+    if (!canvas) {
+        console.error("[NebuleAir] Canvas #mainChart introuvable");
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    const mainChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            datasets: [
+                {
+                    label: "PM1",
+                    data: [],
+                    borderColor: "#007bff",
+                    backgroundColor: "rgba(0, 123, 255, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: "PM2.5",
+                    data: [],
+                    borderColor: "#ff9800",
+                    backgroundColor: "rgba(255, 152, 0, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: "PM10",
+                    data: [],
+                    borderColor: "#e91e63",
+                    backgroundColor: "rgba(233, 30, 99, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: "Température",
+                    data: [],
+                    borderColor: "#00c853",
+                    backgroundColor: "rgba(0, 200, 83, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: "Humidité",
+                    data: [],
+                    borderColor: "#26c6da",
+                    backgroundColor: "rgba(38, 198, 218, 0.15)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: { position: "top", labels: { usePointStyle: true } }
+            },
+            scales: {
+                x: {
+                    type: "time",
+                    time: {
+                        tooltipFormat: "dd MMM yyyy HH:mm",
+                        displayFormats: { minute: "HH:mm", hour: "dd HH'h'", day: "dd MMM" }
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    title: { display: true, text: "µg/m³" }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: "°C / %" }
+                }
+            }
+        }
     });
 
-    // Presets range
-    el.rangeBtns.forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        setRangePreset(btn.getAttribute("data-range"));
-      });
+    // ============================
+    //  3. HELPERS INFLUX & FETCH
+    // ============================
+    function parseInfluxCsv(raw) {
+        const lines = raw.split("\n").map(l => l.trim()).filter(l => l !== "" && !l.startsWith("#"));
+        if (lines.length < 2) return { labels: [], values: [] };
+        const header = lines[0].split(",");
+        const tIdx = header.indexOf("_time"), vIdx = header.indexOf("_value");
+        const labels = [], values = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(",");
+            const v = parseFloat(cols[vIdx]);
+            if (!isNaN(v)) { labels.push(cols[tIdx]); values.push(v); }
+        }
+        return { labels, values };
+    }
+
+    function buildRangeClause() {
+        if (customRange) return `|> range(start: ${customRange.start}, stop: ${customRange.stop})`;
+        const map = { "1h": "-1h", "24h": "-24h", "7j": "-7d", "30j": "-30d" };
+        return `|> range(start: ${map[currentRange] || "-1h"})`;
+    }
+
+    function getWindowEvery() {
+        if (customRange) return "5m";
+        const map = { "1h": "1m", "24h": "5m", "7j": "30m", "30j": "1h" };
+        return map[currentRange] || "1m";
+    }
+
+    async function fetchField(field) {
+        const fluxQuery = `from(bucket: "${BUCKET}") ${buildRangeClause()} |> filter(fn: (r) => r._measurement == "nebuleair" and r._field == "${field}") |> aggregateWindow(every: ${getWindowEvery()}, fn: mean, createEmpty: false) |> yield()`;
+        const response = await fetch(INFLUX_URL, { method: "POST", body: fluxQuery });
+        return parseInfluxCsv(await response.text());
+    }
+
+    // ============================
+    //  4. MISE À JOUR UI
+    // ============================
+    function updateUI() {
+        // MAJ des Cartes de valeurs
+        const mappings = {
+            "pm1-value": series.pm1,
+            "pm25-value": series.pm25,
+            "pm10-value": series.pm10,
+            "temp-value": series.temperature,
+            "hum-value": series.humidite,
+            "wifi-value": series.rssi
+        };
+
+        for (let id in mappings) {
+            const el = document.getElementById(id);
+            if (el) {
+                const arr = mappings[id];
+                const lastVal = (arr && arr.length > 0) ? arr[arr.length - 1] : null;
+                el.textContent = (lastVal !== null && !isNaN(lastVal)) ? lastVal.toFixed(1) : "--";
+            }
+        }
+
+        // MAJ du Graphique
+        if (mainChart) {
+            const keys = ["pm1", "pm25", "pm10", "temperature", "humidite"];
+            keys.forEach((key, i) => {
+                mainChart.data.datasets[i].data = labelsRaw.map((t, idx) => ({ x: t, y: series[key][idx] }));
+            });
+            mainChart.update();
+        }
+    }
+
+    async function loadAllData() {
+        try {
+            const fields = ["pm1", "pm25", "pm10", "temperature", "humidite", "rssi"];
+            const results = await Promise.all(fields.map(f => fetchField(f)));
+            
+            labelsRaw = results[0].labels.map(t => new Date(t));
+            series.pm1 = results[0].values;
+            series.pm25 = results[1].values;
+            series.pm10 = results[2].values;
+            series.temperature = results[3].values;
+            series.humidite = results[4].values;
+            series.rssi = results[5].values;
+
+            updateUI();
+        } catch (err) {
+            console.error("[NebuleAir] Erreur chargement :", err);
+        }
+    }
+
+    // ============================
+    //  5. EVENTS
+    // ============================
+    const rangeButtons = document.querySelectorAll(".btn-range");
+    rangeButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            rangeButtons.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            currentRange = btn.dataset.range;
+            customRange = null;
+            loadAllData();
+        });
     });
 
-    // Apply range (dates)
-    if (el.applyRange) {
-      el.applyRange.addEventListener("click", (e) => {
-        e.preventDefault();
-        refreshData();
-      });
-    }
+    document.getElementById("apply-range")?.addEventListener("click", () => {
+        const start = document.getElementById("start-date").value;
+        const end = document.getElementById("end-date")?.value || new Date().toISOString().split('T')[0];
+        if (!start) return alert("Date de début requise");
+        customRange = { start: new Date(start).toISOString(), stop: new Date(end).toISOString() };
+        rangeButtons.forEach(b => b.classList.remove("active"));
+        loadAllData();
+    });
 
-    // Export
-    if (el.exportBtn) {
-      el.exportBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        exportCSV();
-      });
-    }
+    // Visibilité des courbes
+    ["pm1", "pm25", "pm10", "temp", "hum"].forEach((id, idx) => {
+        document.getElementById(`${id}-toggle`)?.addEventListener("change", (e) => {
+            mainChart.setDatasetVisibility(idx, e.target.checked);
+            mainChart.update();
+        });
+    });
 
-    // Reset = 24h
-    if (el.resetZoom) {
-      el.resetZoom.addEventListener("click", (e) => {
-        e.preventDefault();
-        setRangePreset("24h");
-      });
-    }
+    // Export CSV
+    document.getElementById("export-csv")?.addEventListener("click", () => {
+        if (!labelsRaw.length) return alert("Pas de données");
+        const freq = parseInt(document.getElementById("export-freq").value) || 1;
+        let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
+        for (let i = 0; i < labelsRaw.length; i += freq) {
+            csv += `${labelsRaw[i].toISOString()},${series.pm1[i]||''},${series.pm25[i]||''},${series.pm10[i]||''},${series.temperature[i]||''},${series.humidite[i]||''}\n`;
+        }
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "nebuleair_export.csv";
+        a.click();
+    });
 
-    // Si l’utilisateur change la fréquence d’export, on ne recharge pas forcément,
-    // mais tu peux si tu veux: refreshData();
-  }
+    // Map Leaflet
+    (function() {
+        const lat = 43.30544, lon = 5.39487;
+        const mapEl = document.getElementById("map");
+        if (!mapEl || typeof L === 'undefined') return;
+        const map = L.map("map").setView([lat, lon], 18);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+        L.marker([lat, lon]).addTo(map).bindPopup("<b>Capteur NebuleAir</b>");
+    })();
 
-  // ---------------------- INIT ----------------------
-  document.addEventListener("DOMContentLoaded", () => {
-    initPM25CorrectionUI();
-    bindEvents();
-    ensureDefaultRange();
-    refreshData();
-  });
+    // Snake Easter Egg
+    (function() {
+        const secret = "snake"; let buffer = "";
+        const container = document.getElementById("snake-container");
+        document.addEventListener("keydown", (e) => {
+            if (document.activeElement.tagName === "INPUT") return;
+            buffer = (buffer + e.key.toLowerCase()).slice(-secret.length);
+            if (buffer === secret) {
+                container?.classList.remove("snake-hidden");
+                window.NebuleAirSnake?.init("snakeCanvas");
+            }
+            if (e.key === "Escape") container?.classList.add("snake-hidden");
+        });
+        document.getElementById("snake-close")?.addEventListener("click", () => container?.classList.add("snake-hidden"));
+    })();
 
-  // Pour debug / autres scripts
-  window.refreshDashboard = refreshData;
-})();
+    loadAllData();
+    setInterval(loadAllData, 60000);
+});
