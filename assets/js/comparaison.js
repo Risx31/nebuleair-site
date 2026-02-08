@@ -11,6 +11,30 @@
 (() => {
   "use strict";
 
+   // ====== Stockage calibration (partagée avec index.html) ======
+const PM25_CAL_KEY = "nebuleair.pm25.calibration.v1";
+
+function savePM25Calibration(payload) {
+  try {
+    localStorage.setItem(PM25_CAL_KEY, JSON.stringify({
+      ...payload,
+      savedAt: new Date().toISOString()
+    }));
+  } catch (e) {
+    console.warn("Impossible de sauvegarder la calibration PM2.5:", e);
+  }
+}
+
+function loadPM25Calibration() {
+  try {
+    const raw = localStorage.getItem(PM25_CAL_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+   
   console.log("🚀 Comparaison — MODE CSV (v2 plage calibration) ✅");
 
   const qs = new URLSearchParams(window.location.search);
@@ -500,31 +524,6 @@
 
     downloadCSV(`nebuleair_comparaison_${METRIC}_${new Date().toISOString().slice(0, 10)}.csv`, rows.join("\n"));
   }
-
-   // ====== Stockage calibration (partagée avec index.html) ======
-const PM25_CAL_KEY = "nebuleair.pm25.calibration.v1";
-
-function savePM25Calibration(payload) {
-  try {
-    localStorage.setItem(PM25_CAL_KEY, JSON.stringify({
-      ...payload,
-      savedAt: new Date().toISOString()
-    }));
-  } catch (e) {
-    console.warn("Impossible de sauvegarder la calibration PM2.5:", e);
-  }
-}
-
-function loadPM25Calibration() {
-  try {
-    const raw = localStorage.getItem(PM25_CAL_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-
   // ---------------------- LOAD ----------------------
   async function fetchData() {
     console.log("📦 Lecture CSV NebuleAir + AtmoSud...");
