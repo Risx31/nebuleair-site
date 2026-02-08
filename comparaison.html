@@ -1,113 +1,189 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NebuleAir – Comparaison & Calibration</title>
-    
-    <link rel="stylesheet" href="assets/css/style.css">
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    
-    <script src="assets/js/common.js" defer></script>
-    <script src="assets/js/comparaison.js" defer></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NebuleAir – Comparaison & Calibration</title>
 
-    <style>
-        .comparison-layout {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 24px;
-            margin-top: 24px;
-        }
-        .sidebar-controls .input-group { margin-bottom: 20px; }
-        .sidebar-controls label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); }
-        .sidebar-controls input { width: 100%; }
-        .formula-box { background: var(--primary-soft); padding: 15px; border-radius: 10px; text-align: center; margin: 20px 0; font-family: 'Courier New', monospace; font-size: 14px; }
-        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
-        .kpi-card { text-align: center; }
-        .kpi-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
-        .kpi-value { display: block; font-size: 24px; font-weight: 800; color: var(--primary); }
-        .kpi-sub { font-size: 11px; color: var(--text-muted); }
-        @media (max-width: 1024px) { .comparison-layout { grid-template-columns: 1fr; } }
-    </style>
+  <!-- ✅ Style global du projet (inchangé) -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+
+  <!-- ✅ Chart.js (inchangé) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+  <!-- ✅ Scripts projet (inchangés) -->
+  <script src="assets/js/common.js" defer></script>
+  <script src="assets/js/comparaison.js" defer></script>
+
+  <!-- ✅ Micro-CSS local : conserve exactement ton layout -->
+  <style>
+    .comparison-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      margin-top: 24px;
+      align-items: start;
+    }
+
+    .sidebar-controls .input-group { margin-bottom: 20px; }
+
+    .sidebar-controls label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+
+    .sidebar-controls input { width: 100%; }
+
+    .formula-box {
+      background: var(--primary-soft);
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+      margin: 20px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+      font-size: 14px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card { text-align: center; }
+
+    .kpi-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .kpi-value {
+      display: block;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .kpi-sub { font-size: 11px; color: var(--text-muted); }
+
+    /* Petit bonus : rendre le canvas plus “remplissant” la card */
+    .chart-card {
+      height: 480px;
+      padding: 14px;
+    }
+    .chart-card canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    @media (max-width: 1024px) {
+      .comparison-layout { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 
 <body class="light">
 
-<header class="topbar">
+  <!-- ✅ Barre supérieure conservée (inchangée) -->
+  <header class="topbar">
     <div class="nav-left">
-        <div class="logo">☁️ NebuleAir</div>
-        <nav>
-            <ul class="nav-links">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="comparaison.html" class="active">Comparaison</a></li>
-                <li><a href="status.html">Status</a></li>
-                <li><a href="settings.html">Paramètres</a></li>
-            </ul>
-        </nav>
+      <div class="logo">☁️ NebuleAir</div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="comparaison.html" class="active">Comparaison</a></li>
+          <li><a href="status.html">Status</a></li>
+          <li><a href="settings.html">Paramètres</a></li>
+        </ul>
+      </nav>
     </div>
+
     <div class="nav-right">
-        <button id="themeToggle" class="theme-btn">🌓</button>
-        <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
+      <button id="themeToggle" class="theme-btn" title="Changer le thème">🌓</button>
+      <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
     </div>
-</header>
+  </header>
 
-<main class="page-container">
+  <main class="page-container">
     <div class="comparison-layout">
-        <aside class="card sidebar-controls">
-            <h2 style="font-size: 18px; margin-bottom: 10px;">Calibration</h2>
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Ajustez les coefficients pour corriger la dérive des capteurs.</p>
 
-            <div class="input-group">
-                <label for="coeff-pente">Pente (b)</label>
-                <input type="number" id="coeff-pente" value="1.0" step="0.05" class="date-input">
-                <small style="font-size: 11px; color: var(--text-muted);">Multiplicateur de Gain</small>
-            </div>
+      <!-- Colonne gauche : Calibration -->
+      <aside class="card sidebar-controls" style="padding: 20px;">
+        <h2 style="font-size: 18px; margin-bottom: 10px;">Calibration</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          Ajustez les coefficients pour corriger la dérive des capteurs.
+        </p>
 
-            <div class="input-group">
-                <label for="coeff-offset">Offset (a)</label>
-                <input type="number" id="coeff-offset" value="0.0" step="0.1" class="date-input">
-                <small style="font-size: 11px; color: var(--text-muted);">Décalage à l'origine</small>
-            </div>
+        <div class="input-group">
+          <label for="coeff-pente">Pente (b)</label>
+          <input type="number" id="coeff-pente" value="1.0" step="0.05" class="date-input" />
+          <small style="font-size: 11px; color: var(--text-muted);">Multiplicateur de Gain</small>
+        </div>
 
-            <div class="formula-box">
-                C<sub>corr</sub> = (C<sub>brut</sub> - a) / b
-            </div>
+        <div class="input-group">
+          <label for="coeff-offset">Offset (a)</label>
+          <input type="number" id="coeff-offset" value="0.0" step="0.1" class="date-input" />
+          <small style="font-size: 11px; color: var(--text-muted);">Décalage à l'origine</small>
+        </div>
 
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="apply-calibration" class="btn-primary">Appliquer</button>
-                <button id="export-data" class="btn-primary" style="background: var(--text-muted);">📥 Exporter CSV</button>
-            </div>
-        </aside>
+        <div class="formula-box">
+          C<sub>corr</sub> = (C<sub>brut</sub> - a) / b
+        </div>
 
-        <section>
-            <div class="kpi-grid">
-                <div class="card kpi-card">
-                    <span class="kpi-label">Corrélation (R²)</span>
-                    <span class="kpi-value" id="stat-r2">--</span>
-                    <span class="kpi-sub">Cible > 0.75</span>
-                </div>
-                <div class="card kpi-card">
-                    <span class="kpi-label">Erreur (RMSE)</span>
-                    <span class="kpi-value" id="stat-rmse">--</span>
-                    <span class="kpi-sub">µg/m³</span>
-                </div>
-                <div class="card kpi-card">
-                    <span class="kpi-label">Performance</span>
-                    <span class="kpi-value" id="stat-division">--</span>
-                    <span class="kpi-sub">Index AtmoSud</span>
-                </div>
-            </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- ✅ IDs critiques pour le JS -->
+          <button id="apply-calibration" class="btn-primary" type="button">Appliquer</button>
+          <button id="export-data" class="btn-primary" type="button" style="background: var(--text-muted);">
+            📥 Exporter CSV
+          </button>
+        </div>
+      </aside>
 
-            <div class="card" style="height: 480px;">
-                <canvas id="comparisonChart"></canvas>
-            </div>
-        </section>
+      <!-- Colonne droite : KPIs + Chart -->
+      <section>
+
+        <div class="kpi-grid">
+          <div class="card kpi-card" style="padding: 18px;">
+            <span class="kpi-label">Corrélation (R²)</span>
+            <span class="kpi-value" id="stat-r2">--</span>
+            <span class="kpi-sub">Cible &gt; 0.75</span>
+          </div>
+
+          <div class="card kpi-card" style="padding: 18px;">
+            <span class="kpi-label">Erreur (RMSE)</span>
+            <span class="kpi-value" id="stat-rmse">--</span>
+            <span class="kpi-sub">µg/m³</span>
+          </div>
+
+          <div class="card kpi-card" style="padding: 18px;">
+            <span class="kpi-label">Performance</span>
+            <span class="kpi-value" id="stat-division">--</span>
+            <span class="kpi-sub">Index AtmoSud</span>
+          </div>
+        </div>
+
+        <div class="card chart-card">
+          <canvas id="comparisonChart"></canvas>
+        </div>
+
+      </section>
+
     </div>
-</main>
+  </main>
 
-<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <!-- ✅ On retire Polyfill + MathJax : inutiles ici et sources de bugs/latence -->
 </body>
 </html>
