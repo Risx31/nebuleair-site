@@ -2,55 +2,69 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NebuleAir - Dashboard</title>
-  
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Local CSS -->
   <link rel="stylesheet" href="assets/css/style.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns" defer></script>
 </head>
-<header class="topbar">
+
+<body>
+
+  <header class="topbar">
     <div class="nav-left">
-        <div class="logo">☁️ NebuleAir</div>
-        <nav>
-            <ul class="nav-links">
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="comparaison.html">Comparaison</a></li>
-                <li><a href="status.html">Status</a></li>
-                <li><a href="settings.html">Paramètres</a></li>
-            </ul>
-        </nav>
+      <div class="logo">☁️ NebuleAir</div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="comparaison.html">Comparaison</a></li>
+          <li><a href="status.html">Status</a></li>
+          <li><a href="settings.html">Paramètres</a></li>
+        </ul>
+      </nav>
     </div>
+
     <div class="nav-right">
-        <button id="themeToggle" class="theme-btn" title="Changer de thème">🌓</button>
-        <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
+      <button id="themeToggle" class="theme-btn" title="Changer de thème">🌓</button>
+      <div class="user-profile" id="userProfileBanana" style="margin-left: 15px; cursor: pointer;">🍌</div>
     </div>
-</header>
+  </header>
 
   <main class="page-container">
-    
+
     <div class="dashboard-grid">
       <div class="card">
         <div class="card-label">PM1</div>
         <div class="card-value"><span id="pm1-value">--</span> <small>µg/m³</small></div>
       </div>
+
       <div class="card">
         <div class="card-label">PM2.5</div>
         <div class="card-value"><span id="pm25-value">--</span> <small>µg/m³</small></div>
       </div>
+
       <div class="card">
         <div class="card-label">PM10</div>
         <div class="card-value"><span id="pm10-value">--</span> <small>µg/m³</small></div>
       </div>
+
       <div class="card">
         <div class="card-label">Température</div>
         <div class="card-value"><span id="temp-value">--</span> <small>°C</small></div>
       </div>
+
       <div class="card">
         <div class="card-label">Humidité</div>
         <div class="card-value"><span id="hum-value">--</span> <small>%</small></div>
@@ -66,7 +80,7 @@
           <label><input type="checkbox" id="temp-toggle" checked> Temp</label>
           <label><input type="checkbox" id="hum-toggle" checked> Hum</label>
         </div>
-        
+
         <div class="range-group" style="display: flex; gap: 10px; align-items: center;">
           <button class="btn-range" data-range="1h">1h</button>
           <button class="btn-range" data-range="24h">24h</button>
@@ -89,8 +103,11 @@
 
       <div class="card" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; text-align: center;">
         <div class="card-label">Exporter les données</div>
+
         <div style="width: 100%;">
-          <label for="export-freq" style="display: block; font-size: 13px; margin-bottom: 8px; color: var(--text-muted);">Écart entre chaque donnée :</label>
+          <label for="export-freq" style="display: block; font-size: 13px; margin-bottom: 8px; color: var(--text-muted);">
+            Écart entre chaque donnée :
+          </label>
           <select id="export-freq" style="width: 100%;">
             <option value="1">Toutes les minutes (1m)</option>
             <option value="5">Toutes les 5 min</option>
@@ -100,10 +117,11 @@
             <option value="1440">Toutes les 24h (1j)</option>
           </select>
         </div>
-        <button id="export-csv" class="btn-primary" style="width: 100%;">
-          📤 Télécharger le CSV
-        </button>
-        <button id="reset-zoom" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; text-decoration:underline;">
+
+        <button id="export-csv" class="btn-primary" style="width: 100%;">📤 Télécharger le CSV</button>
+
+        <button id="reset-zoom"
+          style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; text-decoration:underline;">
           Réinitialiser l'affichage
         </button>
       </div>
@@ -111,35 +129,46 @@
 
   </main>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <script src="assets/js/dashboard.js"></script>
-  <script>
-    // Petit script pour gérer l'état actif des onglets
-    document.querySelectorAll('.nav-links a').forEach(link => {
-      if(link.href === window.location.href) link.classList.add('active');
-    });
-  </script>
-  
-  <div id="snake-container" class="snake-hidden">
-  <div id="snake-panel">
-    <div class="snake-header">
-      <h2>🐍 NebuleSnake</h2>
-      <button id="snake-close">&times;</button>
-    </div>
-    <p class="snake-subtitle">
-      Tu as tapé "snake", tu as débloqué le mode serpent.
-      <br>Flèches ou ZQSD pour jouer. 1/2/3 pour la vitesse.
-    </p>
-    <canvas id="snakeCanvas" width="400" height="400"></canvas>
-    <p class="snake-score">Score : <span id="snake-score-current">0</span></p>
-    <div class="snake-footer">
-      <span class="snake-speed">Vitesse : <span id="snake-speed-label">Normal</span></span>
-      <button id="snake-achievements-btn" class="snake-achievements-btn">🏆 Succès</button>
+  <!-- Snake overlay (caché par défaut via .snake-hidden) -->
+  <div id="snake-container" class="snake-hidden" aria-hidden="true">
+    <div id="snake-panel">
+      <div class="snake-header">
+        <h2>🐍 NebuleSnake</h2>
+        <button id="snake-close" aria-label="Fermer">&times;</button>
+      </div>
+
+      <p class="snake-subtitle">
+        Tu as tapé "snake", tu as débloqué le mode serpent.
+        <br>Flèches ou ZQSD pour jouer. 1/2/3 pour la vitesse.
+      </p>
+
+      <canvas id="snakeCanvas" width="400" height="400"></canvas>
+      <p class="snake-score">Score : <span id="snake-score-current">0</span></p>
+
+      <div class="snake-footer">
+        <span class="snake-speed">Vitesse : <span id="snake-speed-label">Normal</span></span>
+        <button id="snake-achievements-btn" class="snake-achievements-btn">🏆 Succès</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script src="assets/js/snake.js"></script>
+  <!-- JS libs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+
+  <!-- App JS -->
+  <script src="assets/js/dashboard.js" defer></script>
+  <script src="assets/js/snake.js" defer></script>
+
+  <script defer>
+    // Onglet actif : comparaison robuste via pathname (évite les surprises avec URLs complètes)
+    window.addEventListener("DOMContentLoaded", () => {
+      const current = window.location.pathname.split("/").pop() || "index.html";
+      document.querySelectorAll(".nav-links a").forEach(a => {
+        const href = (a.getAttribute("href") || "").split("/").pop();
+        if (href === current) a.classList.add("active");
+      });
+    });
+  </script>
+
 </body>
 </html>
