@@ -262,20 +262,40 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    // Export CSV
-    document.getElementById("export-csv")?.addEventListener("click", () => {
-        if (!labelsRaw.length) return alert("Pas de données");
-        const freq = parseInt(document.getElementById("export-freq").value) || 1;
-        let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
-        for (let i = 0; i < labelsRaw.length; i += freq) {
-            csv += `${labelsRaw[i].toISOString()},${series.pm1[i]||''},${series.pm25[i]||''},${series.pm10[i]||''},${series.temperature[i]||''},${series.humidite[i]||''}\n`;
+// --- Section Export CSV Corrigée ---
+document.getElementById("export-csv")?.addEventListener("click", () => {
+    if (!labelsRaw.length) return alert("Pas de données à exporter.");
+
+    const freqMinutes = parseInt(document.getElementById("export-freq").value) || 1;
+    let csv = "time,pm1,pm25,pm10,temperature,humidite\n";
+    
+    let lastExportedTime = null;
+
+    for (let i = 0; i < labelsRaw.length; i++) {
+        const currentTime = labelsRaw[i].getTime();
+
+        // On exporte si c'est le premier point OU si l'écart est suffisant
+        if (!lastExportedTime || (currentTime - lastExportedTime) >= (freqMinutes * 60000)) {
+            const t = labelsRaw[i].toISOString();
+            const v1 = series.pm1[i] ?? "";
+            const v2 = series.pm25[i] ?? "";
+            const v3 = series.pm10[i] ?? "";
+            const v4 = series.temperature[i] ?? "";
+            const v5 = series.humidite[i] ?? "";
+            
+            csv += `${t},${v1},${v2},${v3},${v4},${v5}\n`;
+            lastExportedTime = currentTime;
         }
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = "nebuleair_export.csv";
-        a.click();
-    });
+    }
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nebuleair_export_${freqMinutes}min.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+});
 
     // Map Leaflet
     (function() {
