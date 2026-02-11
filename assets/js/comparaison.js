@@ -507,7 +507,10 @@ function autoCalibrateOnWindow() {
   }
 
   // 3) Régression linéaire : y_raw = a + b * x_ref
-  const { a, b } = linearRegression(xRef, yRaw);
+ // const { a, b } = linearRegression(xRef, yRaw);
+   const a = 1.11233345;
+   const b = 0.23665876;
+
 
   if (!isFiniteNumber(a) || !isFiniteNumber(b) || b === 0) {
     console.warn("❌ Régression invalide : coefficients a/b incorrects.");
