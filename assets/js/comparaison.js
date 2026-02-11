@@ -578,7 +578,10 @@ function autoCalibrateOnWindow() {
     const nebMap = aggregateHourly(nebPoints, METRIC, ["temperature", "humidite"]);
     const atmMap = aggregateHourly(atmPoints, METRIC);
 
-    const keys = buildUnionTimeline(nebMap, atmMap);
+const keys = [...nebMap.keys()]
+  .filter(k => atmMap.has(k))
+  .sort((a, b) => a - b);
+
     data.times = keys.map(k => new Date(k));
 
     data.raw = [];
