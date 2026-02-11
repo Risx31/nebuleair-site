@@ -39,8 +39,13 @@ function loadPM25Calibration() {
 
   const qs = new URLSearchParams(window.location.search);
 
-  const NEBULEAIR_CSV_URL = qs.get("nebuleair") || "assets/data/nebuleair_export.csv";
-  const ATMOSUD_CSV_URL   = qs.get("atmosud")   || "assets/data/MRSLCP_H_17122025au08012026.CSV";
+// ===============================
+// NOUVEAUX FICHIERS 2026
+// ===============================
+
+const NEBULEAIR_CSV_URL = qs.get("nebuleair") || "assets/data/Données corrigées.CSV";
+const ATMOSUD_CSV_URL   = qs.get("atmosud")   || "assets/data/MRS-LCP.CSV";
+
 
   // pm1 | pm25 | pm10
   const METRIC = (qs.get("metric") || "pm25").toLowerCase();
