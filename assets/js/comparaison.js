@@ -43,7 +43,7 @@ function loadPM25Calibration() {
 // NOUVEAUX FICHIERS 2026
 // ===============================
 
-const NEBULEAIR_CSV_URL = qs.get("nebuleair") || "assets/data/Données corrigées.CSV";
+const NEBULEAIR_CSV_URL = qs.get("nebuleair") || "assets/data/Données_brutes2026.CSV";
 const ATMOSUD_CSV_URL   = qs.get("atmosud")   || "assets/data/MRS-LCP.CSV";
 
 
