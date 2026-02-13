@@ -43,6 +43,22 @@ function loadPM25Calibration() {
     }
 }
 
+calibration = loadPM25Calibration();
+
+const toggle = document.getElementById("toggleCorrection");
+
+if (calibration && toggle) {
+    toggle.disabled = false;
+} else if (toggle) {
+    toggle.disabled = true;
+}
+
+toggle?.addEventListener("change", () => {
+    correctionEnabled = toggle.checked;
+    updateCharts(); // Recalcul immédiat
+});
+
+
     // ==========================================
     //  1. GESTION DU THÈME (MODE NUIT / BANANE)
     // ==========================================
