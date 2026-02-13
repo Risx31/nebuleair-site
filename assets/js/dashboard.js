@@ -27,7 +27,22 @@ const PM25_CAL_KEY = "nebuleair.pm25.calibration.v1";
 let correctionEnabled = false;
 let calibration = null;
 
-    
+function loadPM25Calibration() {
+    try {
+        const stored = localStorage.getItem(PM25_CAL_KEY);
+        if (!stored) return null;
+
+        const parsed = JSON.parse(stored);
+
+        if (!isFinite(parsed.a) || !isFinite(parsed.b)) return null;
+
+        return parsed;
+    } catch (e) {
+        console.warn("Erreur chargement calibration:", e);
+        return null;
+    }
+}
+
     // ==========================================
     //  1. GESTION DU THÈME (MODE NUIT / BANANE)
     // ==========================================
