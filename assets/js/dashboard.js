@@ -223,7 +223,10 @@ toggle?.addEventListener("change", () => {
         // MAJ des Cartes de valeurs
         const mappings = {
             "pm1-value": series.pm1,
-            "pm25-value": series.pm25,
+            "pm25-value": (correctionEnabled && calibration)
+    ? series.pm25.map(v => isFinite(v) ? (v - calibration.a) / calibration.b : v)
+    : series.pm25,
+
             "pm10-value": series.pm10,
             "temp-value": series.temperature,
             "hum-value": series.humidite,
@@ -239,15 +242,39 @@ toggle?.addEventListener("change", () => {
             }
         }
 
-        // MAJ du Graphique
-        if (mainChart) {
-            const keys = ["pm1", "pm25", "pm10", "temperature", "humidite"];
-            keys.forEach((key, i) => {
-                mainChart.data.datasets[i].data = labelsRaw.map((t, idx) => ({ x: t, y: series[key][idx] }));
-            });
-            mainChart.update();
-        }
+// MAJ du Graphique
+if (mainChart) {
+
+    // On prépare éventuellement une version corrigée de PM2.5
+    let pm25Display = series.pm25;
+
+    if (correctionEnabled && calibration) {
+        pm25Display = series.pm25.map(v => {
+            if (!isFinite(v)) return v;
+            return (v - calibration.a) / calibration.b;
+        });
     }
+
+    const keys = ["pm1", "pm25", "pm10", "temperature", "humidite"];
+
+    keys.forEach((key, i) => {
+
+        let dataArray = series[key];
+
+        // Si on est sur PM2.5 (index 1), on utilise la version corrigée
+        if (key === "pm25") {
+            dataArray = pm25Display;
+        }
+
+        mainChart.data.datasets[i].data = labelsRaw.map((t, idx) => ({
+            x: t,
+            y: dataArray[idx]
+        }));
+    });
+
+    mainChart.update();
+}
+
 
     async function loadAllData() {
         try {
