@@ -55,7 +55,7 @@ if (calibration && toggle) {
 
 toggle?.addEventListener("change", () => {
     correctionEnabled = toggle.checked;
-    updateCharts(); // Recalcul immédiat
+    updateUI(); // Recalcul immédiat
 });
 
 
