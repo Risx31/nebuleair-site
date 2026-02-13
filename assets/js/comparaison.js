@@ -436,12 +436,13 @@ const ATMOSUD_CSV_URL   = qs.get("atmosud")   || "assets/data/MRS-LCP.CSV";
   }
 
   // ---------------------- KPI + CORR ----------------------
-function calcKPIsOnWindow(b, windowMs) {
+function calcKPIsOnWindow(windowMs) {
 
   const refArr = [];
   const corrArr = [];
 
   for (let i = 0; i < data.times.length; i++) {
+
     const tMs = data.times[i].getTime();
     if (windowMs && (tMs < windowMs.startMs || tMs > windowMs.endMs)) continue;
 
@@ -454,20 +455,27 @@ function calcKPIsOnWindow(b, windowMs) {
     }
   }
 
-  const r2 = rSquared(refArr, corrArr);   // ✅ maintenant dynamique
+  const r2 = rSquared(refArr, corrArr);
   const eRMSE = rmse(refArr, corrArr);
 
+  setText(el.statR2, isFiniteNumber(r2) ? r2.toFixed(2) : "--");
+  setText(el.statRMSE, isFiniteNumber(eRMSE) ? eRMSE.toFixed(1) : "--");
 
-    setText(el.statR2, isFiniteNumber(r2) ? r2.toFixed(2) : "--");
-    setText(el.statRMSE, isFiniteNumber(eRMSE) ? eRMSE.toFixed(1) : "--");
+  // récupération dynamique de b (comme Excel)
+  const b = el.coeffB ? parseFloat(el.coeffB.value) : NaN;
 
-    const div = computeDivision(r2, b);
-    if (el.statDivision) {
-      el.statDivision.textContent = div.division;
-      el.statDivision.style.color = div.color;
-    }
-    if (el.cardDivision) el.cardDivision.style.borderLeft = `4px solid ${div.color}`;
+  const div = computeDivision(r2, b);
+
+  if (el.statDivision) {
+    el.statDivision.textContent = div.division;
+    el.statDivision.style.color = div.color;
   }
+
+  if (el.cardDivision) {
+    el.cardDivision.style.borderLeft = `4px solid ${div.color}`;
+  }
+}
+
 
   function updateCorrection() {
     const a = el.coeffA ? (parseFloat(el.coeffA.value) || 0) : 0;
@@ -486,7 +494,7 @@ function calcKPIsOnWindow(b, windowMs) {
       return Math.max(0, (v - a) / b);
     });
 
-    calcKPIsOnWindow(b, windowMs);
+    calcKPIsOnWindow(windowMs);
     renderChart();
   }
 
