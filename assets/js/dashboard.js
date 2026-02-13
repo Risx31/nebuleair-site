@@ -22,6 +22,12 @@ document.addEventListener("DOMContentLoaded", function () {
         rssi: []
     };
 
+const PM25_CAL_KEY = "nebuleair.pm25.calibration.v1";
+
+let correctionEnabled = false;
+let calibration = null;
+
+    
     // ==========================================
     //  1. GESTION DU THÈME (MODE NUIT / BANANE)
     // ==========================================
