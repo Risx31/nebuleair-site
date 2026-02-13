@@ -436,25 +436,27 @@ const ATMOSUD_CSV_URL   = qs.get("atmosud")   || "assets/data/MRS-LCP.CSV";
   }
 
   // ---------------------- KPI + CORR ----------------------
-  function calcKPIsOnWindow(b, windowMs) {
-    const { xRef, yRaw } = getPairs(windowMs);
-    const r2 = rSquared(xRef, yRaw);
+function calcKPIsOnWindow(b, windowMs) {
 
-    const refArr = [];
-    const corrArr = [];
-    for (let i = 0; i < data.times.length; i++) {
-      const tMs = data.times[i].getTime();
-      if (windowMs && (tMs < windowMs.startMs || tMs > windowMs.endMs)) continue;
+  const refArr = [];
+  const corrArr = [];
 
-      const ref = data.ref[i];
-      const corr = data.corr[i];
-      if (isFiniteNumber(ref) && isFiniteNumber(corr)) {
-        refArr.push(ref);
-        corrArr.push(corr);
-      }
+  for (let i = 0; i < data.times.length; i++) {
+    const tMs = data.times[i].getTime();
+    if (windowMs && (tMs < windowMs.startMs || tMs > windowMs.endMs)) continue;
+
+    const ref = data.ref[i];
+    const corr = data.corr[i];
+
+    if (isFiniteNumber(ref) && isFiniteNumber(corr)) {
+      refArr.push(ref);
+      corrArr.push(corr);
     }
+  }
 
-    const eRMSE = rmse(refArr, corrArr);
+  const r2 = rSquared(refArr, corrArr);   // ✅ maintenant dynamique
+  const eRMSE = rmse(refArr, corrArr);
+
 
     setText(el.statR2, isFiniteNumber(r2) ? r2.toFixed(2) : "--");
     setText(el.statRMSE, isFiniteNumber(eRMSE) ? eRMSE.toFixed(1) : "--");
