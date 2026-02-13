@@ -274,7 +274,7 @@ if (mainChart) {
 
     mainChart.update();
 }
-
+}
 
     async function loadAllData() {
         try {
