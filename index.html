@@ -55,11 +55,6 @@
         <div class="card-value"><span id="pm25-value">--</span> <small>µg/m³</small></div>
       </div>
 
-      <label class="calibration-toggle">
-  <input type="checkbox" id="toggleCorrection">
-  Activer correction PM2.5
-</label>
-
       <div class="card">
         <div class="card-label">PM10</div>
         <div class="card-value"><span id="pm10-value">--</span> <small>µg/m³</small></div>
@@ -85,6 +80,11 @@
           <label><input type="checkbox" id="temp-toggle" checked> Temp</label>
           <label><input type="checkbox" id="hum-toggle" checked> Hum</label>
         </div>
+        
+<label class="calibration-toggle">
+  <input type="checkbox" id="toggleCorrection">
+  Activer correction PM2.5
+</label>
 
 <div class="range-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
   <button class="btn-range" data-range="1h">1h</button>
