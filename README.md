@@ -53,12 +53,12 @@ Ce dépôt regroupe le code et la documentation du système **Sens'Air** (air ex
 
 ![image](image/Décrochage2.jpg)
 
-## Architecture logicielle (Software Architecture)
+## Architecture logicielle 
 
-L'écosystème **NebuleAir** repose sur une architecture moderne en trois couches, conçue pour offrir une visualisation fluide et des outils d'analyse avancés.
+L'écosystème **NebuleAir** repose sur une architecture en trois couches, conçue pour offrir une visualisation propre de nos données.
 
 ### 1. Stockage et Backend (Data Layer)
-* **Base de données InfluxDB (Cloud)** : Les données envoyées par l'ESP32 sont stockées dans un bucket nommé `Nodule Air`. Il s'agit d'une base de données orientée "séries temporelles", idéale pour le suivi environnemental.
+* **Base de données InfluxDB (Cloud)** : Les données envoyées par l'ESP32 sont stockées dans un bucket nommé `Nodule Air`. Il s'agit d'une base de données basée en "séries temporelles", idéale pour le suivi.
 * **Proxy Render (Middleware)** : Pour sécuriser les clés d'API et contourner les restrictions CORS, un proxy intermédiaire hébergé sur **Render** (`nebuleairproxy.onrender.com`) assure la liaison entre le site web et InfluxDB.
 
 ### 2. Interface Client (Frontend)
