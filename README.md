@@ -84,3 +84,28 @@ Le site est une application web statique (HTML/CSS/JS) organisée en plusieurs m
 * **Librairies** : [Chart.js](https://www.chartjs.org/), [Leaflet](https://leafletjs.com/), [date-fns](https://date-fns.org/).
 * **Hébergement** : GitHub Pages pour le site statique et Render pour le proxy API.
 
+## Organisation du dépôt
+
+Le projet est structuré de manière à séparer la logique de présentation (HTML), les styles (CSS), les scripts de traitement (JS) et les données de test (Data).
+
+### 📂 Racine du projet
+* `index.html` : Page d'accueil et Dashboard principal du projet.
+* `comparaison.html` : Interface dédiée à l'analyse comparative et à la calibration des capteurs.
+* `dashboard.html` : Vue alternative ou détaillée des mesures en temps réel.
+* `status.html` / `settings.html` : Pages de suivi de l'état du système et de configuration des paramètres.
+* `README.md` : Documentation principale du projet.
+
+### 📂 assets/ (Ressources statiques)
+* **`/js/`** : Contient l'intelligence du site.
+    * `api.js` : Gestion des requêtes vers le proxy InfluxDB.
+    * `dashboard.js` : Logique d'affichage des graphiques et de mise à jour des cartes de données.
+    * `comparaison.js` : Algorithmes de régression linéaire, calcul des KPIs ($R^2$, $RMSE$) et gestion des CSV.
+    * `common.js` : Fonctions transverses (thème sombre, formatage du temps).
+    * `snake.js` : Code source de l'Easter Egg interactif.
+* **`/css/`** : Feuilles de style organisées par modules (`style.css`, `dark.css`, `dashboard.css`).
+* **`/data/`** : Stockage des fichiers de données pour la démonstration.
+    * `Données_brutes2026.CSV` : Données issues du capteur Sens'Air.
+    * `MRS-LCP.CSV` : Données de référence de la station AtmoSud Longchamp.
+
+### 📂 image/
+* Regroupe les photographies du prototype, du boîtier et des installations sur site pour illustrer le rapport de projet.
