@@ -48,9 +48,8 @@ Ce dépôt regroupe le code et la documentation du système **Sens'Air** (air ex
 - **Firmware ESP32** (Arduino / PlatformIO)
 - **Transport des données** : HTTP
 - **Base de données** : InfluxDB 
-- **Dashboard / UI** : site web (Chart.js, etc.), (https://risx31.github.io/nebuleair-site/dashboard.html)
+- **Dashboard / UI** : site web (Chart.js, etc.), (https://risx31.github.io/nebuleair-site/index.html)
 
 
 ![image](image/pomme_mechante.png)
 
-![image](image/Bruno)
