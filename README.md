@@ -86,26 +86,28 @@ Le site est une application web statique (HTML/CSS/JS) organisée en plusieurs m
 
 ## Organisation du dépôt
 
-Le projet est structuré de manière à séparer la logique de présentation (HTML), les styles (CSS), les scripts de traitement (JS) et les données de test (Data).
+Le projet est structuré pour séparer clairement le code source, les actifs du site web, la documentation technique et les ressources multimédias.
 
 ### 📂 Racine du projet
-* `index.html` : Page d'accueil et Dashboard principal du projet.
-* `comparaison.html` : Interface dédiée à l'analyse comparative et à la calibration des capteurs.
-* `dashboard.html` : Vue alternative ou détaillée des mesures en temps réel.
-* `status.html` / `settings.html` : Pages de suivi de l'état du système et de configuration des paramètres.
-* `README.md` : Documentation principale du projet.
+* `index.html` : Tableau de bord principal (Dashboard) intégrant les mesures en temps réel et la carte.
+* `comparaison.html` : Interface d'analyse comparative avec les données AtmoSud et outils de calibration.
+* `dashboard.html` : Vue alternative simplifiée pour l'affichage des données.
+* `status.html` / `settings.html` : Pages de suivi de l'état du système et configuration utilisateur.
+* `README.md` : Documentation générale et guide du projet.
 
-### 📂 assets/ (Ressources statiques)
-* **`/js/`** : Contient l'intelligence du site.
-    * `api.js` : Gestion des requêtes vers le proxy InfluxDB.
-    * `dashboard.js` : Logique d'affichage des graphiques et de mise à jour des cartes de données.
-    * `comparaison.js` : Algorithmes de régression linéaire, calcul des KPIs ($R^2$, $RMSE$) et gestion des CSV.
-    * `common.js` : Fonctions transverses (thème sombre, formatage du temps).
-    * `snake.js` : Code source de l'Easter Egg interactif.
-* **`/css/`** : Feuilles de style organisées par modules (`style.css`, `dark.css`, `dashboard.css`).
-* **`/data/`** : Stockage des fichiers de données pour la démonstration.
-    * `Données_brutes2026.CSV` : Données issues du capteur Sens'Air.
-    * `MRS-LCP.CSV` : Données de référence de la station AtmoSud Longchamp.
+### 📂 assets/ (Ressources du site)
+* **`/js/`** : Logique applicative du projet.
+    * `api.js` : Communication avec la base de données InfluxDB via le proxy.
+    * `dashboard.js` : Gestion de l'affichage dynamique et des graphiques Chart.js.
+    * `comparaison.js` : Algorithmes de calcul ($R^2$, $RMSE$) et régression linéaire pour la calibration.
+    * `common.js` : Scripts partagés et gestion du thème (clair/sombre).
+    * `snake.js` : Code de l'Easter Egg interactif.
+* **`/css/`** : Feuilles de style organisées par thèmes et composants (`style.css`, `dark.css`).
+* **`/data/`** : Jeux de données locaux (CSV) pour les tests et la comparaison historique.
+
+### 📂 documents/ (Documentation Technique)
+* `Code Commenté (main).cpp` : Code source complet du firmware pour l'ESP32, largement commenté pour expliquer la gestion des capteurs NextPM et BME280.
+* `Comparaison données final.xlsx` (exports CSV) : Fichiers d'analyse intermédiaire utilisés pour le calcul des facteurs de correction et la validation de la précision.
 
 ### 📂 image/
-* Regroupe les photographies du prototype, du boîtier et des installations sur site pour illustrer le rapport de projet.
+* Ce dossier contient les photographies du prototype **Sens'Air** à différentes étapes : montage électronique, mise en boîte étanche et installation finale sur le site du parc Longchamps.
