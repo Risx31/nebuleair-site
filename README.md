@@ -53,6 +53,8 @@ Ce dépôt regroupe le code et la documentation du système **Sens'Air** (air ex
 
 ![image](image/Décrochage2.jpg)
 
+![image](image/Capteur_attaché.jpg)
+
 ## Architecture logicielle 
 
 L'écosystème **NebuleAir** repose sur une architecture en trois couches, conçue pour offrir une visualisation propre de nos données.
