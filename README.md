@@ -53,3 +53,34 @@ Ce dépôt regroupe le code et la documentation du système **Sens'Air** (air ex
 
 ![image](image/Décrochage2.jpg)
 
+## Architecture logicielle (Software Architecture)
+
+L'écosystème **NebuleAir** repose sur une architecture moderne en trois couches, conçue pour offrir une visualisation fluide et des outils d'analyse avancés.
+
+### 1. Stockage et Backend (Data Layer)
+* **Base de données InfluxDB (Cloud)** : Les données envoyées par l'ESP32 sont stockées dans un bucket nommé `Nodule Air`. Il s'agit d'une base de données orientée "séries temporelles", idéale pour le suivi environnemental.
+* **Proxy Render (Middleware)** : Pour sécuriser les clés d'API et contourner les restrictions CORS, un proxy intermédiaire hébergé sur **Render** (`nebuleairproxy.onrender.com`) assure la liaison entre le site web et InfluxDB.
+
+### 2. Interface Client (Frontend)
+Le site est une application web statique (HTML/CSS/JS) organisée en plusieurs modules :
+
+* **Dashboard (`index.html` & `dashboard.js`)** : 
+    * Affiche les dernières mesures de particules fines (PM1, PM2.5, PM10), température et humidité en temps réel.
+    * Visualisation graphique interactive via **Chart.js**.
+    * Cartographie **Leaflet** pour localiser précisément le capteur fixe.
+    * Système d'exportation des données au format CSV avec choix de la fréquence d'échantillonnage.
+* **Module de Comparaison & Calibration (`comparaison.html` & `comparaison.js`)** :
+    * Permet de confronter les données brutes du capteur aux données de référence de la station **AtmoSud** (MRS-LCP).
+    * Calcule automatiquement des indicateurs de performance : corrélation ($R^2$), erreur ($RMSE$) et classement par "Division" (A, B ou Hors Critères) selon les standards de qualité.
+    * **Auto-calibration** : Utilise une régression linéaire pour calculer des coefficients de correction ($a$ et $b$) afin d'ajuster la dérive des capteurs.
+
+### 3. Fonctionnalités Transverses
+* **Gestion du thème** : Un mode sombre/clair persistant est intégré via `common.js` et le `localStorage` du navigateur.
+* **Correction dynamique** : Une fois la calibration effectuée, la correction peut être activée sur le dashboard principal pour ajuster les valeurs de PM2.5 affichées.
+* **Easter Egg** : Un jeu "Snake" est intégré au site, activable via le mot-clé secret "snake" au clavier.
+
+### Technologies utilisées
+* **Langages** : HTML5, CSS3, JavaScript (ES6+).
+* **Librairies** : [Chart.js](https://www.chartjs.org/), [Leaflet](https://leafletjs.com/), [date-fns](https://date-fns.org/).
+* **Hébergement** : GitHub Pages pour le site statique et Render pour le proxy API.
+
